@@ -17,12 +17,35 @@ void dgemm(double* A, double* B, double* C) {
   }
 }
 
+#define A(i,j) A[ (j)*M + (i) ]
+#define B(i,j) B[ (j)*K + (i) ]
+#define C(i,j) C[ (j)*M + (i) ]
+
+void AddDot(int, double*, int, double*, double*);
+
 void dgemm_opt(double* A, double* B, double* C) {
   
   /** =================
    *         TODO
    *  ================= */
-  
+  for (int n = 0; n < N; n+=4) {
+    for (int m = 0; m < M; m+=1) {
+      AddDot(K, &A(m,0), M, &B(0,n), &C(m,n));
+      AddDot(K, &A(m,0), M, &B(0,n+1), &C(m,n+1));
+      AddDot(K, &A(m,0), M, &B(0,n+2), &C(m,n+2));
+      AddDot(K, &A(m,0), M, &B(0,n+3), &C(m,n+3));
+      /*for (int k = 0; k < K; ++k) {
+        C(m,n) += A(m,k) * B(k,n);
+      }*/
+    }
+  }
+}
+
+#define X(i) x[ (i)*incx ]
+
+void AddDot(int k, double* x, int incx, double* y, double* gamma) {
+  int p;
+  for (p = 0; p < k; p++) *gamma += X(p) * y[p];
 }
 
 int main(int argc, char** argv) {

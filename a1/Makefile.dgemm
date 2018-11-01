@@ -2,20 +2,20 @@ K=128
 
 # TODO
 # Adjust these values
-M=11
-N=11
+M=16
+N=16
 ALIGNMENT=8
 # END TODO
 
 CXX=icpc
-CXXFLAGS=-O3 -xMIC-AVX512
+CXXFLAGS=-O3 -axMIC-AVX512 -qopt-report3 -qopt-report-routine=dgemm_opt
 LDFLAGS=
 DEFINES=-DALIGNMENT=$(ALIGNMENT) -DM=$(M) -DN=$(N) -DK=$(K)
 SOURCES=dgemm.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=dgemm
 
-all: $(SOURCES) $(EXECUTABLE)
+all: clean $(SOURCES) $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CXX) $(LDFLAGS) $(OBJECTS) -o $@
