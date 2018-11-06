@@ -46,18 +46,6 @@ void dgemm_opt(double* A, double* B, double* C) {
       AddDot4x4(K, &A(m,0), lda, &B(0,n), ldb, &C(m,n), ldc);
     }
   }
-  
-  /*int b = 8;
-  
-  for (int i = 0; i < M/b; i++)
-    for (int j = 0; j < N/b; j++)
-      for (int k = 0; k < K/b; k++) {
-        // read required blocks of A and B (also C for k = 1)
-        for (int ii = 1; ii <= b; ii++)
-          for (int jj = 1; jj <= b; jj++)
-            for (int kk = 1; kk <= b; kk++)
-              C[i*b+ii + M * (j*b+jj)] += A[i∗b+ii + M * (k∗b+kk)] ∗ B[k∗b+kk + K * (j∗b+jj)];
-      }*/
 }
 
 #include <immintrin.h>
@@ -98,14 +86,14 @@ void AddDot8x8(int KK, double* A, int lda, double* B, int ldb, double* C, int ld
     b_k6.v = _mm512_set1_pd(*(b_k6_ptr+k));
     b_k7.v = _mm512_set1_pd(*(b_k7_ptr+k));
     
-    c_x0.v += a_xk.v * b_k0.v;
-    c_x1.v += a_xk.v * b_k1.v;
-    c_x2.v += a_xk.v * b_k2.v;
-    c_x3.v += a_xk.v * b_k3.v;
-    c_x4.v += a_xk.v * b_k4.v;
-    c_x5.v += a_xk.v * b_k5.v;
-    c_x6.v += a_xk.v * b_k6.v;
-    c_x7.v += a_xk.v * b_k7.v;
+    c_x0.v = _mm512_fmadd_pd(a_xk.v, b_k0.v, c_x0.v);
+    c_x1.v = _mm512_fmadd_pd(a_xk.v, b_k1.v, c_x1.v);
+    c_x2.v = _mm512_fmadd_pd(a_xk.v, b_k2.v, c_x2.v);
+    c_x3.v = _mm512_fmadd_pd(a_xk.v, b_k3.v, c_x3.v);
+    c_x4.v = _mm512_fmadd_pd(a_xk.v, b_k4.v, c_x4.v);
+    c_x5.v = _mm512_fmadd_pd(a_xk.v, b_k5.v, c_x5.v);
+    c_x6.v = _mm512_fmadd_pd(a_xk.v, b_k6.v, c_x6.v);
+    c_x7.v = _mm512_fmadd_pd(a_xk.v, b_k7.v, c_x7.v);
   }
   
   int i;
@@ -142,10 +130,10 @@ void AddDot4x4(int KK, double* A, int lda, double* B, int ldb, double* C, int ld
     b_k2.v = _mm256_set1_pd(*(b_k2_ptr+k));
     b_k3.v = _mm256_set1_pd(*(b_k3_ptr+k));
     
-    c_x0.v += a_xk.v * b_k0.v;
-    c_x1.v += a_xk.v * b_k1.v;
-    c_x2.v += a_xk.v * b_k2.v;
-    c_x3.v += a_xk.v * b_k3.v;
+    c_x0.v = _mm256_fmadd_pd(a_xk.v, b_k0.v, c_x0.v);
+    c_x1.v = _mm256_fmadd_pd(a_xk.v, b_k1.v, c_x1.v);
+    c_x2.v = _mm256_fmadd_pd(a_xk.v, b_k2.v, c_x2.v);
+    c_x3.v = _mm256_fmadd_pd(a_xk.v, b_k3.v, c_x3.v);
   }
   
   int i;
@@ -162,7 +150,7 @@ void InnerKernel(int k, double* A, int lda, double* B, int ldb, double* C, int l
     PackMatrixB( k, &B( 0, n ), ldb, &packedB[ n*k ] );
     for (m = 0; m < M; m+=4) {
       if (n == 0) PackMatrixA( k, &A( m, 0 ), lda, &packedA[ m*k ] );
-      AddDot4x4(k, &packedA[ m*k ], 4, &B(0,n), ldb, &C(m,n), ldc);
+      AddDot4x4(k, &packedA[ m*k ], 4, &packedB[n*k], ldb, &C(m,n), ldc);
     }
   }
 }
