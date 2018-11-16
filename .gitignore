@@ -53,3 +53,5 @@ dkms.conf
 
 /All/
 !a1/*.out
+/libxsmm/
+
