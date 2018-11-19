@@ -1,0 +1,9 @@
+1. LIBXSMM generator
+After making the generator, we can use it to generate a kernel, for example
+./libxsmm_gemm_generator dense <file_path> <func_name> 16 16 128 16 128 1024 1 1 1 1 knl nopf DP
+will generate a function <func_name> in the file <file_path>, which calculate a dense matrix multiplication of A of size 16x128 with LDA = 16, B of size 128x16 with LDB = 128, C of size 16x16 with LDC = 1024, all in double precision, specifically for KNL. Other parameters can be looked up in the library's documentation.
+
+2. GEMM and OpenMP
+- M, N, K, MC can be set in Makefile.
+- S, threadsPerTeam, nThreads can be set in dgemm.sh. The corresponding microkernel needs to be selected in dgemm.cpp.
+- After building, run the program on the compute node using command "sbatch dgemm.sh"

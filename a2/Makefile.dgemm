@@ -1,9 +1,9 @@
 # TODO
 # Adjust these values, if necessary
-M=11
-N=11
+M=16
+N=16
 K=128
-MC=131
+MC=512
 # END TODO
 ALIGNMENT=64
 
