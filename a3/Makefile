@@ -1,0 +1,23 @@
+ALIGNMENT=32
+
+CXX=icpc
+CXXFLAGS=-O3 -axMIC-AVX512
+LDFLAGS=
+DEFINES=-DALIGNMENT=$(ALIGNMENT)
+SOURCES=poisson.cpp
+OBJECTS=$(SOURCES:.cpp=.o)
+EXECUTABLE=app
+
+all: $(SOURCES) $(EXECUTABLE)
+
+$(EXECUTABLE): $(OBJECTS)
+	$(CXX) $(LDFLAGS) $(OBJECTS) -o $@
+
+.cpp.o:
+	$(CXX) -c $(CXXFLAGS) $< -o $@ $(DEFINES)
+	
+$(SOURCES): Makefile
+	touch $@
+
+clean:
+	rm *.o $(EXECUTABLE)
