@@ -1,7 +1,7 @@
-ALIGNMENT=32
+ALIGNMENT=64
 
-CXX=icpc
-CXXFLAGS=-O3 -axMIC-AVX512
+CXX=mpiicpc -DUSE_MPI=1
+CXXFLAGS=-O3 -xMIC-AVX512
 LDFLAGS=
 DEFINES=-DALIGNMENT=$(ALIGNMENT)
 SOURCES=poisson.cpp
@@ -20,4 +20,4 @@ $(SOURCES): Makefile
 	touch $@
 
 clean:
-	rm *.o $(EXECUTABLE)
+	rm *.o *.gnuplot $(EXECUTABLE)
