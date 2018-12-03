@@ -33,6 +33,15 @@ int rank, size;
 size_t h_procs, v_procs;
 int x_min, x_max, y_min, y_max, nbrs[4], i_min, i_max, j_min, j_max;
 
+void printGrid(std::string name, double *grid, int x_1, int x_2, int y_1, int y_2) {
+    std::cout << name << ":" << std::endl;
+    for (int i = y_1; i < y_2; i++) {
+        for (int j = x_1; j < x_2; j++)
+            std::cout << " " << grid[i*grid_points_1d+j];
+        std::cout << std::endl;
+    }
+}
+
 /**
  * initialize and start timer
  */
@@ -79,8 +88,8 @@ double timer_stop() {
  * @param filename the filename
  */
 void store_grid(double* grid, std::string filename) {
-	std::fstream filestr;
-	filestr.open (filename.c_str(), std::fstream::out);
+    std::fstream filestr;
+    filestr.open (filename.c_str(), std::fstream::out);
 	
 	// calculate mesh width 
 	double mesh_width = 1.0/((double)(grid_points_1d-1));
@@ -91,12 +100,13 @@ void store_grid(double* grid, std::string filename) {
 		for (int j = 0; j < grid_points_1d; j++)
 		{
 			filestr << mesh_width*i << " " << mesh_width*j << " " << grid[(i*grid_points_1d)+j] << std::endl;
+            //filestr << "\t" << grid[(i*grid_points_1d)+j];
 		}
 		
 		filestr << std::endl;
 	}
 
-	filestr.close();
+    filestr.close();
 }
 
 /**
@@ -176,9 +186,14 @@ double g_dot_product(double* grid1, double* grid2) {
 	for (int i = i_min; i < i_max; i++)
 		for (int j = j_min; j < j_max; j++)
 			tmp += grid1[i*grid_points_1d+j] * grid2[i*grid_points_1d+j];
-	
+        
+//     printGrid(std::string("grid1"), grid1, 0, grid_points_1d, 0, grid_points_1d);
+//     printGrid(std::string("grid2"), grid2, 0, grid_points_1d, 0, grid_points_1d);
+//     std::cout << "tmp " << tmp << std::endl;
+    
     double sum = 0.0;
     MPI_Allreduce(&tmp, &sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+//     std::cout << "sum " << sum << std::endl;
     return sum;
 }
 
@@ -246,6 +261,10 @@ void g_product_operator(double* grid, double* result) {
     
     MPI_Waitall(8, reqs, stats);
     MPI_Type_free(&vectortype);
+//     printGrid(std::string("recv up"), inbuf_x[0], 0, x_size, 0, 1);
+//     printGrid(std::string("recv down"), inbuf_x[1], 0, x_size, 0, 1);
+//     printGrid(std::string("recv left"), inbuf_y[0], 0, y_size, 0, 1);
+//     printGrid(std::string("recv right"), inbuf_y[1], 0, y_size, 0, 1);
     
     if (nbrs[UP] >= 0) {
         memcpy(&grid[(y_min-1)*grid_points_1d+x_min], inbuf_x[0], x_size*sizeof(double));
@@ -261,6 +280,7 @@ void g_product_operator(double* grid, double* result) {
         for (int k = 0; k < y_size; k++)
             grid[(y_min+k)*grid_points_1d+x_max] = inbuf_y[1][k];
     }
+//     printGrid(std::string("grid"), grid, 0, grid_points_1d, 0, grid_points_1d);
     
     for (int i = 0; i < 2; i++) {
         _mm_free(inbuf_x[i]);
@@ -284,6 +304,8 @@ void g_product_operator(double* grid, double* result) {
 							) * (mesh_width*mesh_width);
 		}
 	}
+//     printGrid(std::string("result"), result, 0, grid_points_1d, 0, grid_points_1d);
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 /**
@@ -298,7 +320,7 @@ void g_product_operator(double* grid, double* result) {
  * @param cg_max_iterations max. number of CG iterations 
  * @param cg_eps the CG's epsilon
  */
-std::size_t solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps) {
+std::size_t solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps, MPI_Comm cartcomm) {
     if (rank == 0) std::cout << "Starting Conjugated Gradients" << std::endl;
 
 	double eps_squared = cg_eps*cg_eps;
@@ -313,7 +335,7 @@ std::size_t solve(double* grid, double* b, std::size_t cg_max_iterations, double
 	g_copy(q, grid);
 	g_copy(r, grid);
 	g_copy(d, grid);
-	g_copy(b_save, b);
+    g_copy(b_save, b);
 	
 	double delta_0 = 0.0;
 	double delta_old = 0.0;
@@ -322,12 +344,14 @@ std::size_t solve(double* grid, double* b, std::size_t cg_max_iterations, double
 	double a = 0.0;
 	double residuum = 0.0;
 	
+//     std::cout << "product operator grid with d" << std::endl;
 	g_product_operator(grid, d);
 	g_scale_add(b, d, -1.0);
 	g_copy(r, b);
 	g_copy(d, r);
 
 	// calculate starting norm
+//     std::cout << "dot product r with r" << std::endl;
 	delta_new = g_dot_product(r, r);
 	delta_0 = delta_new*eps_squared;
 	residuum = (delta_0/eps_squared);
@@ -339,9 +363,11 @@ std::size_t solve(double* grid, double* b, std::size_t cg_max_iterations, double
 
 	while ((needed_iters < cg_max_iterations) && (delta_new > delta_0)) {
 		// q = A*d
+//         std::cout << "product operator d with q" << std::endl;
 		g_product_operator(d, q);
 
 		// a = d_new / d.q
+//         std::cout << "dot product d with q" << std::endl;
 		a = delta_new/g_dot_product(d, q);
 		
 		// x = x + a*d
@@ -350,6 +376,7 @@ std::size_t solve(double* grid, double* b, std::size_t cg_max_iterations, double
 		if ((needed_iters % 50) == 0)
 		{
 			g_copy(b, b_save);
+//             std::cout << "product operator grid with q" << std::endl;
 			g_product_operator(grid, q);
 			g_scale_add(b, q, -1.0);
 			g_copy(r, b);
@@ -362,6 +389,7 @@ std::size_t solve(double* grid, double* b, std::size_t cg_max_iterations, double
 		
 		// calculate new deltas and determine beta
 		delta_old = delta_new;
+//         std::cout << "dot product r with r" << std::endl;
 		delta_new = g_dot_product(r, r);
 		beta = delta_new/delta_old;
 
@@ -384,7 +412,71 @@ std::size_t solve(double* grid, double* b, std::size_t cg_max_iterations, double
 	_mm_free(r);
 	_mm_free(b_save);
     
+    // collect
+    /*double* collect = (double*)_mm_malloc(grid_points_1d*grid_points_1d*sizeof(double), ALIGNMENT);
     
+    MPI_Datatype patch, sizedpatch;
+    int sizes[2] = {grid_points_1d, grid_points_1d},
+        subsizes[2] = {y_max-y_min, x_max-x_min},
+        starts[2] = {y_min, x_min};
+    MPI_Type_create_subarray(2, sizes, subsizes, starts, MPI_ORDER_C, MPI_DOUBLE, &patch);
+    MPI_Type_create_resized(patch, 0, sizeof(double), &sizedpatch);
+    MPI_Type_commit(&sizedpatch);
+    
+    MPI_Allgather(grid, 1, sizedpatch, collect, 1, sizedpatch, MPI_COMM_WORLD);
+    //if (rank == 0) MPI_Gather(MPI_IN_PLACE, 1, patch, grid, 1, patch, 0, MPI_COMM_WORLD);
+    //else MPI_Gather(grid, 1, patch, grid, 1, patch, 0, MPI_COMM_WORLD);
+    printGrid(std::string("grid"), collect, 0, grid_points_1d, 0, grid_points_1d);
+    
+    MPI_Type_free(&sizedpatch);
+    _mm_free(collect);*/
+    int tag = 17;
+    if (rank != 0) {
+        MPI_Request req;
+        MPI_Status stat;
+        MPI_Datatype vectortype;
+        MPI_Type_vector(y_max-y_min, x_max-x_min, grid_points_1d, MPI_DOUBLE, &vectortype);
+        MPI_Type_commit(&vectortype);
+        MPI_Isend(&grid[y_min*grid_points_1d+x_min], 1, vectortype, 0, tag, MPI_COMM_WORLD, &req);
+        MPI_Waitall(1, &req, &stat);
+        MPI_Type_free(&vectortype);
+    } else {
+        MPI_Request reqs[size-1];
+        MPI_Status stats[size-1];
+        double **inbuf;
+        inbuf = (double**) _mm_malloc((size-1)*sizeof(double*), ALIGNMENT);
+        int maxbufsize = (y_max-y_min)*(x_max-x_min);
+        for (int i = 1; i < size; i++) {
+            inbuf[i-1] = (double*) _mm_malloc(maxbufsize*sizeof(double), ALIGNMENT);
+            MPI_Irecv(inbuf[i-1], maxbufsize, MPI_DOUBLE, i, tag, MPI_COMM_WORLD, &reqs[i-1]);
+        }
+        MPI_Waitall(size-1, reqs, stats);
+        
+        for (int i = 1; i < size; i++) {
+            int coords[2];
+            MPI_Cart_coords(cartcomm, i, 2, coords);
+            
+            int x_first, y_first;
+            int x_remainder = grid_points_1d % v_procs, y_remainder = grid_points_1d % h_procs;
+            int x_len = grid_points_1d / v_procs, y_len = grid_points_1d / h_procs;
+            if (coords[0] < y_remainder) {
+                y_len++;
+                y_first = y_len * coords[0];
+            } else
+                y_first = y_len * coords[0] + y_remainder;
+            if (coords[1] < x_remainder) {
+                x_len++;
+                x_first = x_len * coords[1];
+            } else
+                x_first = x_len * coords[1] + x_remainder;
+            
+            for (int row = 0; row < y_len; row++) {
+                memcpy(&grid[(y_first+row)*grid_points_1d+x_first], inbuf[i-1]+row*x_len, x_len*sizeof(double));
+            }
+            _mm_free(inbuf[i-1]);
+        }
+        _mm_free(inbuf);
+    }
 }
 
 /**
@@ -398,13 +490,20 @@ int main(int argc, char* argv[]) {
     MPI_Init(&argc, &argv);
 	printf("%d\n", argc);*/
     
-    char name[1024];
+//     char name[1024];
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    gethostname(name, 1024);
+//     gethostname(name, 1024);
     
-    std::cout << "Hello, this is (rank << " << rank << " of " << size << " on " << name << ")" << std::endl;
+//     std::stringstream ss;
+//     ss << rank;
+//     std::string out_file = "out" + ss.str() + ".txt";
+//     std::ofstream out(out_file.c_str());
+//     std::streambuf *coutbuf = std::cout.rdbuf(); //save old buf
+//     std::cout.rdbuf(out.rdbuf()); //redirect std::cout to out!
+//     
+//     std::cout << "Hello, this is (rank " << rank << " of " << size << " on " << name << ")" << std::endl;
 	
 	// check if all parameters are specified
     if (argc < 4) {
@@ -434,8 +533,8 @@ int main(int argc, char* argv[]) {
             std::cout << "There is some issue with number of processors. Terminating..." << std::endl;
         return -1;
     }
-    if (grid_points_1d % h_procs == 1) h_procs--;
-    if (grid_points_1d % v_procs == 1) v_procs--;
+    //if (grid_points_1d % h_procs == 1) h_procs--;
+    //if (grid_points_1d % v_procs == 1) v_procs--;
 
 	// calculate grid points per dimension
 	grid_points_1d = (std::size_t)(1.0/mesh_width)+1;
@@ -449,41 +548,55 @@ int main(int argc, char* argv[]) {
     MPI_Cart_shift(cartcomm, 0, 1, &nbrs[UP], &nbrs[DOWN]);
     MPI_Cart_shift(cartcomm, 1, 1, &nbrs[LEFT], &nbrs[RIGHT]);
     
-    int last_x_len = grid_points_1d % v_procs, last_y_len = grid_points_1d % h_procs;
-    int normal_x_len = (grid_points_1d - last_x_len) / (v_procs - 1),
-        normal_y_len = (grid_points_1d - last_y_len) / (h_procs - 1);
-    x_min = normal_x_len * coords[1];
-    x_max = coords[1] < v_procs - 1 ? x_min + normal_x_len : grid_points_1d;
-    y_min = normal_y_len * coords[0];
-    y_max = coords[0] < h_procs - 1 ? y_min + normal_y_len : grid_points_1d;
+    int x_remainder = grid_points_1d % v_procs, y_remainder = grid_points_1d % h_procs;
+    int x_len = grid_points_1d / v_procs, y_len = grid_points_1d / h_procs;
+//     std::cout << "coords[0] " << coords[0] << "; coords[1] " << coords[1] << "; x_len " << x_len << "; y_len " << y_len << std::endl;
+    if (coords[0] < y_remainder) {
+        y_len++;
+        y_min = y_len * coords[0];
+    } else
+        y_min = y_len * coords[0] + y_remainder;
+    if (coords[1] < x_remainder) {
+        x_len++;
+        x_min = x_len * coords[1];
+    } else
+        x_min = x_len * coords[1] + x_remainder;
+//     std::cout << "x_remainder " << x_remainder << "; y_remainder " << y_remainder << "; x_len " << x_len << "; y_len " << y_len << std::endl;
+    x_max = x_min + x_len;
+    y_max = y_min + y_len;
+//     std::cout << "x_min " << x_min << "; x_max " << x_max << "; y_min " << y_min << "; y_max " << y_max << std::endl;
     
     i_min = nbrs[UP] >= 0 ? y_min : y_min+1;
     i_max = nbrs[DOWN] >= 0 ? y_max : y_max-1;
     j_min = nbrs[LEFT] >= 0 ? x_min : x_min+1;
     j_max = nbrs[RIGHT] >= 0 ? x_max : x_max-1;
+//     std::cout << "i_min " << i_min << "; i_max " << i_max << "; j_min " << j_min << "; j_max " << j_max << std::endl;
     
     // initialize the gird and rights hand side
 	double* grid = (double*)_mm_malloc(grid_points_1d*grid_points_1d*sizeof(double), ALIGNMENT);
 	double* b = (double*)_mm_malloc(grid_points_1d*grid_points_1d*sizeof(double), ALIGNMENT);
 	init_grid(grid);
-	if (rank == 0) store_grid(grid, "initial_condition.gnuplot");
+// 	if (rank == 0) store_grid(grid, "initial_condition.gnuplot");
 	init_b(b);
-	if (rank == 0) store_grid(b, "b.gnuplot");
+// 	if (rank == 0) store_grid(b, "b.gnuplot");
 	
 	// solve Poisson equation using CG method
 	timer_start();
-	solve(grid, b, cg_max_iterations, cg_eps);
+	solve(grid, b, cg_max_iterations, cg_eps, cartcomm);
 	double time = timer_stop();
     
-    std::stringstream ss;
-    ss << rank;
-    std::string store_file = "solution" + ss.str() + ".gnuplot";
-	store_grid(grid, store_file);
+//     std::string store_file = "solution" + ss.str() + ".gnuplot";
+// 	store_grid(grid, store_file);
 	
-	if (rank == 0) std::cout << std::endl << "Needed time: " << time << " s" << std::endl << std::endl;
+	if (rank == 0) {
+//         store_grid(grid, "solution.gnuplot");
+        std::cout << std::endl << "Needed time: " << time << " s" << std::endl << std::endl;
+    }
 	
 	_mm_free(grid);
 	_mm_free(b);
+    
+//     std::cout.rdbuf(coutbuf);
     
     MPI_Finalize();
 

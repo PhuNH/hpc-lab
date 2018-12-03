@@ -20,4 +20,4 @@ $(SOURCES): Makefile
 	touch $@
 
 clean:
-	rm *.o *.gnuplot $(EXECUTABLE)
+	rm *.o $(EXECUTABLE)
