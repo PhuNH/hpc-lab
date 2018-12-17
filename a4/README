@@ -1,0 +1,29 @@
+game task:
+---
+To build:
+    make -f Makefile.game
+
+To run the measurement with the program: obtain a job allocation using salloc then use srun
+    srun likwid-perfctr -C 0 -g <event_group> -m ./game
+where event_group should be either ICACHE, L2CACHE, TLB_DATA, or TLB_INSTR.
+
+
+
+
+
+
+dtrmv task:
+---
+There are 2 versions of the dtrmv function, choose the one to use by uncommenting it and commenting the other (line 82-83 of the source file).
+
+To build:
+    make -f Makefile.dtrmv
+
+To run the measurement with the program: obtain a job allocation using salloc then set the env var and use srun
+    export OMP_NUM_THREADS=<#thread>
+    srun likwid-perfctr -C N:0-<max_thread_id> -g FLOPS_DP -m ./dtrmv
+where max_thread_id = #thread - 1
+
+To run the measurement with different numbers of threads (10, 16, 32, 50, 64, 100, 128, 200, 256): obtain a job allocation using salloc then run the script
+    ./dtrmv.sh
+9 files named dtrmv_<#thread> will be created in the current directory.
