@@ -1,7 +1,7 @@
 CXX=icpc
-CXXFLAGS=-O3 -xHost -qopenmp
-LDFLAGS=-qopenmp
-DEFINES=
+CXXFLAGS=-O3 -xHost -qopenmp ${LIKWID_INC}
+LDFLAGS=-qopenmp ${LIKWID_LIB}
+DEFINES=-DLIKWID_PERFMON
 SOURCES=dtrmv.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=dtrmv
