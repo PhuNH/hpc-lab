@@ -14,7 +14,6 @@ int simulate( GlobalConstants const&  globals,
               Grid<Material>&         materialGrid,
               Grid<DegreesOfFreedom>& degreesOfFreedomGrid,
               WaveFieldWriter&        waveFieldWriter,
-              SourceTerm&             sourceterm,
-			  MPI_Comm cartcomm);
+              SourceTerm&             sourceterm);
 
 #endif // SIMULATOR_H_

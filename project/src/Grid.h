@@ -24,10 +24,6 @@ public:
     return m_data[periodicIndex(y, m_Y) * m_X + periodicIndex(x, m_X)];
   }
   
-  inline T* get_row(int y) {
-	return &m_data[periodicIndex(y, m_Y) * m_X];
-  }
-  
   inline int X() const {
     return m_X;
   }

@@ -17,7 +17,7 @@ void initialCondition(  GlobalConstants const& globals,
   for (int y = 0; y < locals.elts_size[1]; ++y) {
     for (int x = 0; x < locals.elts_size[0]; ++x) {
       DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
-      Material& material = materialGrid.get(x, y);
+      Material& material = materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]);
       
       double scaledWavespeed = sqrt(2.) * material.wavespeed() / 2.;
       
@@ -46,7 +46,6 @@ void initialCondition(  GlobalConstants const& globals,
           degreesOfFreedom[q*NUMBER_OF_BASIS_FUNCTIONS + k] *= GlobalMatrices::Minv[k*NUMBER_OF_BASIS_FUNCTIONS + k];
         }
       }
-      
     }
   }
 }
@@ -71,7 +70,7 @@ void L2error_squared( double time,
   for (int y = 0; y < locals.elts_size[1]; ++y) {
     for (int x = 0; x < locals.elts_size[0]; ++x) {
       DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
-      Material& material = materialGrid.get(x, y);
+      Material& material = materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]);
       
       double scaledWavespeed = sqrt(2.) * material.wavespeed() / 2.;
       double omega = 2.*sqrt(2.) * M_PI * material.wavespeed();
@@ -103,11 +102,6 @@ void L2error_squared( double time,
       }      
     }
   }
-  /*
-  for (unsigned q = 0; q < NUMBER_OF_QUANTITIES; ++q) {
-    l2error[q] = sqrt(l2error[q]);
-  }
-  */
 }
 
 void square_root_array(double * array, int length){
@@ -115,8 +109,6 @@ void square_root_array(double * array, int length){
     array[q] = sqrt(array[q]);
   }
 }
-
-
 
 void initSourcetermPhi(double xi, double eta, SourceTerm& sourceterm) {
   for (unsigned k = 0; k < NUMBER_OF_BASIS_FUNCTIONS; ++k) {

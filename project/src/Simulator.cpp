@@ -22,12 +22,11 @@ double determineTimestep(double hx, double hy, Grid<Material>& materialGrid)
 }
 
 int simulate( GlobalConstants const&  globals,
-			  LocalConstants const&  locals,
+			  LocalConstants const&   locals,
               Grid<Material>&         materialGrid,
               Grid<DegreesOfFreedom>& degreesOfFreedomGrid,
               WaveFieldWriter&        waveFieldWriter,
-              SourceTerm&             sourceterm,
-			  MPI_Comm cartcomm)
+              SourceTerm&             sourceterm)
 {
 	
   Grid<DegreesOfFreedom> timeIntegratedGrid(locals.elts_size[0]+2, locals.elts_size[1]+2); // +2 for ghost layers
@@ -35,20 +34,21 @@ int simulate( GlobalConstants const&  globals,
   double time;
   int step = 0;
   
-  double **inbuf_x, **inbuf_y, **outbuf_y;
+  double **inbuf_x, **inbuf_y, **outbuf_x, **outbuf_y;
   inbuf_x = (double**) _mm_malloc(2*sizeof(double*), ALIGNMENT);
   inbuf_y = (double**) _mm_malloc(2*sizeof(double*), ALIGNMENT);
+  outbuf_x = (double**) _mm_malloc(2*sizeof(double*), ALIGNMENT);
   outbuf_y = (double**) _mm_malloc(2*sizeof(double*), ALIGNMENT);
   
   for (int i = 0; i < 2; i++) {
-    inbuf_x[i] = (double*) _mm_malloc(locals.elts_size[0] * NUMBER_OF_DOFS * sizeof(double), ALIGNMENT);
-    inbuf_y[i] = (double*) _mm_malloc(locals.elts_size[1] * NUMBER_OF_DOFS * sizeof(double), ALIGNMENT);
-    outbuf_y[i] = (double*) _mm_malloc(locals.elts_size[1] * NUMBER_OF_DOFS * sizeof(double), ALIGNMENT);
+    inbuf_x[i] = (double*) _mm_malloc(locals.elts_size[0] * sizeof(DegreesOfFreedom), ALIGNMENT);
+    inbuf_y[i] = (double*) _mm_malloc(locals.elts_size[1] * sizeof(DegreesOfFreedom), ALIGNMENT);
+    outbuf_x[i] = (double*) _mm_malloc(locals.elts_size[0] * sizeof(DegreesOfFreedom), ALIGNMENT);
+    outbuf_y[i] = (double*) _mm_malloc(locals.elts_size[1] * sizeof(DegreesOfFreedom), ALIGNMENT);
   }
   
   for (time = 0.0; time < globals.endTime; time += globals.maxTimestep) {
-    // should be uncommented when we will have dealt with writing file issue
-	//waveFieldWriter.writeTimestep(time, degreesOfFreedomGrid);
+    waveFieldWriter.writeTimestep(time, degreesOfFreedomGrid);
     
     double timestep = std::min(globals.maxTimestep, globals.endTime - time);
 	
@@ -80,10 +80,12 @@ int simulate( GlobalConstants const&  globals,
         computeAplus(material, materialGrid.get(x + locals.start_elts[0] + 1, y + locals.start_elts[1]), Aplus);
         rotateFluxSolver(1., 0., Aplus, rotatedAplus);
         computeFlux(-globals.hy / (globals.hx * globals.hy), GlobalMatrices::Fym1, rotatedAplus, timeIntegrated, degreesOfFreedom);
+        
+        if (x == 0) memcpy(&outbuf_y[0][y * sizeof(DegreesOfFreedom)], timeIntegrated, sizeof(DegreesOfFreedom));
+        if (x == locals.elts_size[0] - 1) memcpy(&outbuf_y[1][y * sizeof(DegreesOfFreedom)], timeIntegrated, sizeof(DegreesOfFreedom));
+        if (y == 0) memcpy(&outbuf_x[0][x * sizeof(DegreesOfFreedom)], timeIntegrated, sizeof(DegreesOfFreedom));
+        if (y == locals.elts_size[1] - 1) memcpy(&outbuf_x[1][x * sizeof(DegreesOfFreedom)], timeIntegrated, sizeof(DegreesOfFreedom));
       }
-      
-      memcpy(outbuf_y[0] + y * NUMBER_OF_DOFS * sizeof(double), timeIntegratedGrid.get(1, y+1), NUMBER_OF_DOFS * sizeof(double));
-      memcpy(outbuf_y[1] + y * NUMBER_OF_DOFS * sizeof(double), timeIntegratedGrid.get(locals.elts_size[0], y+1), NUMBER_OF_DOFS * sizeof(double));
     }
 	
 	// Barrier : All the timeIntegrated variables have to be updated before data exchange
@@ -97,10 +99,9 @@ int simulate( GlobalConstants const&  globals,
     MPI_Request reqs[8];
     MPI_Status stats[8];
 	
-	MPI_Isend(timeIntegratedGrid.get_row(1), locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[UP], tag, MPI_COMM_WORLD, &reqs[UP]);
+	MPI_Isend(outbuf_x[0], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[UP], tag, MPI_COMM_WORLD, &reqs[UP]);
     MPI_Irecv(inbuf_x[0], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[UP], tag, MPI_COMM_WORLD, &reqs[UP+4]);
-	
-    MPI_Isend(timeIntegratedGrid.get_row(locals.elts_size[1]), locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[DOWN], tag, MPI_COMM_WORLD, &reqs[DOWN]);
+    MPI_Isend(outbuf_x[1], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[DOWN], tag, MPI_COMM_WORLD, &reqs[DOWN]);
     MPI_Irecv(inbuf_x[1], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[DOWN], tag, MPI_COMM_WORLD, &reqs[DOWN+4]);
 
 	MPI_Isend(outbuf_y[0], locals.elts_size[1]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[LEFT], tag, MPI_COMM_WORLD, &reqs[LEFT]);
@@ -111,12 +112,12 @@ int simulate( GlobalConstants const&  globals,
 	MPI_Waitall(8, reqs, stats);
     
     for (int x = 1; x <= locals.elts_size[0]; ++x) {
-      memcpy(timeIntegratedGrid.get(x, 0), inbuf_x[0] + (x-1) * NUMBER_OF_DOFS * sizeof(double), NUMBER_OF_DOFS*sizeof(double));
-      memcpy(timeIntegratedGrid.get(x, locals.elts_size[0]+1), inbuf_x[1] + (x-1) * NUMBER_OF_DOFS * sizeof(double), NUMBER_OF_DOFS*sizeof(double));
+      memcpy(timeIntegratedGrid.get(x, 0), &inbuf_x[0][(x-1) * sizeof(DegreesOfFreedom)], sizeof(DegreesOfFreedom));
+      memcpy(timeIntegratedGrid.get(x, locals.elts_size[0]+1), &inbuf_x[1][(x-1) * sizeof(DegreesOfFreedom)], sizeof(DegreesOfFreedom));
     }
     for (int y = 1; y <= locals.elts_size[1]; ++y) {
-      memcpy(timeIntegratedGrid.get(0, y), inbuf_y[0] + (y-1) * NUMBER_OF_DOFS * sizeof(double), NUMBER_OF_DOFS*sizeof(double));
-      memcpy(timeIntegratedGrid.get(locals.elts_size[1]+1, y), inbuf_y[1] + (y-1) * NUMBER_OF_DOFS * sizeof(double), NUMBER_OF_DOFS*sizeof(double));
+      memcpy(timeIntegratedGrid.get(0, y), &inbuf_y[0][(y-1) * sizeof(DegreesOfFreedom)], sizeof(DegreesOfFreedom));
+      memcpy(timeIntegratedGrid.get(locals.elts_size[1]+1, y), &inbuf_y[1][(y-1) * sizeof(DegreesOfFreedom)], sizeof(DegreesOfFreedom));
     }
 
     for (int y = 0; y < locals.elts_size[1]; ++y) {
@@ -124,7 +125,7 @@ int simulate( GlobalConstants const&  globals,
         double Aplus[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
         double rotatedAplus[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
 
-        Material& material = materialGrid.get(x, y);
+        Material& material = materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]);
         DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
 
         computeAminus(material, materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]-1), Aplus);
@@ -155,7 +156,7 @@ int simulate( GlobalConstants const&  globals,
     }
     
     ++step;
-    if (step % 100 == 0) {
+    if (step % 100 == 0 && locals.rank == 0) {
       std::cout << "At time / timestep: " << time << " / " << step << std::endl;
     }
   }
@@ -169,8 +170,7 @@ int simulate( GlobalConstants const&  globals,
   _mm_free(inbuf_y);
   _mm_free(outbuf_y);
   
-  // should be uncommented when we will have dealt with writing file issue
-  // waveFieldWriter.writeTimestep(globals.endTime, degreesOfFreedomGrid, true);
+  waveFieldWriter.writeTimestep(globals.endTime, degreesOfFreedomGrid, true);
   
   return step;
 }
