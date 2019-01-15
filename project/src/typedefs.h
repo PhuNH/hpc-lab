@@ -13,6 +13,29 @@ struct GlobalConstants {
   int Y;
   double maxTimestep;
   double endTime;
+  
+  // Size of the processors grid [int procs_y_axis,int procs_x_axis]
+  int dims_proc[2];
+  
+  // Number of processors allocated
+  int nb_procs;
+};
+
+struct LocalConstants {
+	
+  int rank;
+  
+  // Index among processor [i_proc,j_proc]
+  int coords_proc[2];
+  
+  // index among elements : starting element [x_elt_start,y_elt_start];
+  int start_elts[2];
+  
+  // size elements
+  int elts_size[2];
+  
+  // rank processors [UP, DOWN, LEFT, RIGHT]
+  int adj_list[4];
 };
 
 struct Material {

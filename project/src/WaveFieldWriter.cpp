@@ -9,7 +9,7 @@
 #include "basisfunctions.h"
 #include "GEMM.h"
 
-WaveFieldWriter::WaveFieldWriter(std::string const& baseName, GlobalConstants const& globals, double interval, int pointsPerDim)
+WaveFieldWriter::WaveFieldWriter(std::string const& baseName, GlobalConstants const& globals, LocalConstants const& locals, double interval, int pointsPerDim)
   : m_step(0), m_interval(interval), m_lastTime(-std::numeric_limits<double>::max()), m_pointsPerDim(pointsPerDim)
 {  
   if (!baseName.empty()) {

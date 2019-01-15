@@ -56,3 +56,4 @@ dkms.conf
 /libxsmm/
 /a3/*.sh
 /a3/out
+/*.notes

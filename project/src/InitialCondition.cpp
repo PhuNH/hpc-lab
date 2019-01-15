@@ -4,6 +4,7 @@
 #include "GlobalMatrices.h"
 
 void initialCondition(  GlobalConstants const& globals,
+						LocalConstants const& locals,
                         Grid<Material>& materialGrid,
                         Grid<DegreesOfFreedom>& degreesOfFreedomGrid  )
 {
@@ -13,8 +14,8 @@ void initialCondition(  GlobalConstants const& globals,
   
   seissol::quadrature::GaussLegendre(points, weights, npoints);
   
-  for (int y = 0; y < globals.Y; ++y) {
-    for (int x = 0; x < globals.X; ++x) {
+  for (int y = 0; y < locals.elts_size[1]; ++y) {
+    for (int x = 0; x < locals.elts_size[0]; ++x) {
       DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
       Material& material = materialGrid.get(x, y);
       

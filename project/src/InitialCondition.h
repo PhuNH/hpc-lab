@@ -5,6 +5,7 @@
 #include "Grid.h"
 
 void initialCondition(  GlobalConstants const& globals,
+						LocalConstants const& locals,
                         Grid<Material>& materialGrid,
                         Grid<DegreesOfFreedom>& degreesOfFreedomGrid  );
 

@@ -6,8 +6,36 @@
 #include "Simulator.h"
 #include "Grid.h"
 #include "InitialCondition.h"
+#include <mpi.h>
 
-void initScenario0(GlobalConstants& globals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid)
+void get_size_subgrid(int index_proc_axis, int nb_procs_axis, int grid_size, int * size_current, int * start){
+	
+	int min_size = ((int) grid_size/nb_procs_axis);
+	
+	if(grid_size % nb_procs_axis > index_proc_axis){
+		*size_current = min_size + 1;
+	}
+	else{
+		*size_current = min_size;
+	}
+	
+	if(index_proc_axis == 0){
+		*start = 0;
+	}
+	else{
+		
+		if(grid_size % nb_procs_axis > index_proc_axis){
+			*start = index_proc_axis + index_proc_axis * min_size;
+		}
+		else{
+			*start = grid_size % nb_procs_axis + index_proc_axis * min_size;
+		}
+		
+	}
+	
+}
+
+void initScenario0(GlobalConstants& globals, LocalConstants& locals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid)
 {    
   for (int y = 0; y < globals.Y; ++y) {
     for (int x = 0; x < globals.X; ++x) {
@@ -17,10 +45,10 @@ void initScenario0(GlobalConstants& globals, Grid<Material>& materialGrid, Grid<
     }
   }
 
-  initialCondition(globals, materialGrid, degreesOfFreedomGrid);
+  initialCondition(globals, locals, materialGrid, degreesOfFreedomGrid);
 }
 
-void initScenario1(GlobalConstants& globals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid)
+void initScenario1(GlobalConstants& globals, LocalConstants& locals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid)
 {
   double checkerWidth = 0.25;
 
@@ -38,7 +66,7 @@ void initScenario1(GlobalConstants& globals, Grid<Material>& materialGrid, Grid<
     }
   }
 
-  initialCondition(globals, materialGrid, degreesOfFreedomGrid);
+  initialCondition(globals, locals, materialGrid, degreesOfFreedomGrid);
 }
 
 double sourceFunctionAntiderivative(double time)
@@ -46,7 +74,7 @@ double sourceFunctionAntiderivative(double time)
   return sin(time);
 }
 
-void initSourceTerm23(GlobalConstants& globals, SourceTerm& sourceterm)
+void initSourceTerm23(GlobalConstants& globals, LocalConstants& locals, SourceTerm& sourceterm)
 {
   sourceterm.quantity = 0; // pressure source
   double xs = 0.5;
@@ -61,7 +89,7 @@ void initSourceTerm23(GlobalConstants& globals, SourceTerm& sourceterm)
   sourceterm.antiderivative = sourceFunctionAntiderivative;  
 }
 
-void initScenario2(GlobalConstants& globals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid, SourceTerm& sourceterm)
+void initScenario2(GlobalConstants& globals, LocalConstants& locals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid, SourceTerm& sourceterm)
 {
   for (int y = 0; y < globals.Y; ++y) {
     for (int x = 0; x < globals.X; ++x) {
@@ -71,10 +99,10 @@ void initScenario2(GlobalConstants& globals, Grid<Material>& materialGrid, Grid<
     }
   }
   
-  initSourceTerm23(globals, sourceterm);
+  initSourceTerm23(globals, locals, sourceterm);
 }
 
-void initScenario3(GlobalConstants& globals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid, SourceTerm& sourceterm)
+void initScenario3(GlobalConstants& globals, LocalConstants& locals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid, SourceTerm& sourceterm)
 {
   for (int y = 0; y < globals.Y; ++y) {
     for (int x = 0; x < globals.X; ++x) {
@@ -93,15 +121,17 @@ void initScenario3(GlobalConstants& globals, Grid<Material>& materialGrid, Grid<
     }
   }
   
-  initSourceTerm23(globals, sourceterm);
+  initSourceTerm23(globals, locals, sourceterm);
 }
 
 int main(int argc, char** argv)
 {
+  
   int scenario;
   double wfwInterval;
   std::string wfwBasename;
   GlobalConstants globals;
+  LocalConstants locals;
   
   try {
     TCLAP::CmdLine cmd("ADER-DG for linear acoustics.", ' ', "0.1");
@@ -111,12 +141,16 @@ int main(int argc, char** argv)
     TCLAP::ValueArg<std::string> basenameArg("o", "output", "Basename of wavefield writer output. Leave empty for no output.", false, "", "string");
     TCLAP::ValueArg<double> intervalArg("i", "interval", "Time interval of wavefield writer.", false, 0.1, "double");
     TCLAP::ValueArg<double> timeArg("t", "end-time", "Final simulation time.", false, 0.5, "double");
+    TCLAP::ValueArg<int> horizontalArg("u", "hprocs", "Number of nodes - Horizontal axis", true, 0, "int");
+    TCLAP::ValueArg<int> verticalArg("v", "vprocs", "Number of nodes - Vertical axis", true, 0, "int");
     cmd.add(scenarioArg);
     cmd.add(XArg);
     cmd.add(YArg);
     cmd.add(basenameArg);
     cmd.add(intervalArg);
     cmd.add(timeArg);
+   cmd.add(horizontalArg);
+    cmd.add(verticalArg);
     
     cmd.parse(argc, argv);
     
@@ -126,6 +160,10 @@ int main(int argc, char** argv)
     wfwBasename = basenameArg.getValue();
     wfwInterval = intervalArg.getValue();
     globals.endTime = timeArg.getValue();
+	
+	
+	globals.dims_proc[0] = horizontalArg.getValue();
+	globals.dims_proc[1] = verticalArg.getValue();
     
     if (scenario < 0 || scenario > 3) {
       std::cerr << "Unknown scenario." << std::endl;
@@ -143,22 +181,41 @@ int main(int argc, char** argv)
   globals.hx = 1. / globals.X;
   globals.hy = 1. / globals.Y;
   
-  Grid<DegreesOfFreedom> degreesOfFreedomGrid(globals.X, globals.Y);
-  Grid<Material> materialGrid(globals.X, globals.Y);
+  // Initialize MPI functions
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &locals.rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &globals.nb_procs);
+  
+  // Initialize cartesian grid
+  int periods[2] = {0, 0}, reorder = 0;
+  MPI_Comm cartcomm;
+  MPI_Cart_create(MPI_COMM_WORLD, 2, globals.dims_proc, periods, reorder, &cartcomm);
+  MPI_Cart_coords(cartcomm, locals.rank, 2, locals.coords_proc);
+  MPI_Cart_shift(cartcomm, 0, 1, &locals.adj_list[UP], &locals.adj_list[DOWN]);
+  MPI_Cart_shift(cartcomm, 1, 1, &locals.adj_list[LEFT], &locals.adj_list[RIGHT]);
+  
+  // Initializing locals variable
+  get_size_subgrid(locals.coords_proc[0], globals.dims_proc[0], globals.X, &locals.elts_size[0], &locals.start_elts[0]);
+  get_size_subgrid(locals.coords_proc[1], globals.dims_proc[1], globals.Y, &locals.elts_size[1], &locals.start_elts[1]);
+  
+  printf("Rank : %d -- iproc = %d -- jproc = %d -- (xstart = %d, ystart = %d) -- (xsize = %d, ysize = %d) \n",locals.rank,locals.coords_proc [0],locals.coords_proc[1],locals.start_elts[0],locals.start_elts[1],locals.elts_size[0],locals.elts_size[1]);
+  
+  Grid<DegreesOfFreedom> degreesOfFreedomGrid(locals.elts_size[0], locals.elts_size[1]); // Change with MPI structure
+  Grid<Material> materialGrid(globals.X, globals.Y); // Each node stores all : could be optimized - to see later
   SourceTerm sourceterm;
   
   switch (scenario) {
     case 0:
-      initScenario0(globals, materialGrid, degreesOfFreedomGrid);
+      initScenario0(globals, locals, materialGrid, degreesOfFreedomGrid);
       break;
     case 1:
-      initScenario1(globals, materialGrid, degreesOfFreedomGrid);
+      initScenario1(globals, locals, materialGrid, degreesOfFreedomGrid);
       break;
     case 2:
-      initScenario2(globals, materialGrid, degreesOfFreedomGrid, sourceterm);
+      initScenario2(globals, locals, materialGrid, degreesOfFreedomGrid, sourceterm);
       break;
     case 3:
-      initScenario3(globals, materialGrid, degreesOfFreedomGrid, sourceterm);
+      initScenario3(globals, locals, materialGrid, degreesOfFreedomGrid, sourceterm);
       break;
     default:
       break;
@@ -166,10 +223,11 @@ int main(int argc, char** argv)
   
   globals.maxTimestep = determineTimestep(globals.hx, globals.hy, materialGrid);
   
-  WaveFieldWriter waveFieldWriter(wfwBasename, globals, wfwInterval, static_cast<int>(ceil( sqrt(NUMBER_OF_BASIS_FUNCTIONS) )));
+  // we will see how to deal with that after
+  WaveFieldWriter waveFieldWriter(wfwBasename, globals, locals, wfwInterval, static_cast<int>(ceil( sqrt(NUMBER_OF_BASIS_FUNCTIONS) )));
 
-  int steps = simulate(globals, materialGrid, degreesOfFreedomGrid, waveFieldWriter, sourceterm);
-  
+  int steps = simulate(globals, locals, materialGrid, degreesOfFreedomGrid, waveFieldWriter, sourceterm, cartcomm);
+  /*
   if (scenario == 0) {
     double l2error[NUMBER_OF_QUANTITIES];
     L2error(globals.endTime, globals, materialGrid, degreesOfFreedomGrid, l2error);
@@ -180,6 +238,9 @@ int main(int argc, char** argv)
   }
   
   std::cout << "Total number of timesteps: " << steps << std::endl;
-  
+  */
+  MPI_Finalize();
+
+ 
   return 0;
 }

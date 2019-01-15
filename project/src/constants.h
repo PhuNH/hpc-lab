@@ -6,4 +6,11 @@
 
 #define NUMBER_OF_DOFS (NUMBER_OF_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES)
 
+#define UP    0
+#define DOWN  1
+#define LEFT  2
+#define RIGHT 3
+
+#define ALIGNMENT 64
+
 #endif // CONSTANTS_H_
