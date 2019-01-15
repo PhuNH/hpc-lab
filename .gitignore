@@ -59,3 +59,4 @@ dkms.conf
 /*.notes
 /project/build/
 /project/output/
+/project/*.dblite
