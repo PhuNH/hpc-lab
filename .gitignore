@@ -57,3 +57,5 @@ dkms.conf
 /a3/*.sh
 /a3/out
 /*.notes
+/project/build/
+/project/output/
