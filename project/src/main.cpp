@@ -211,18 +211,29 @@ int main(int argc, char** argv)
   WaveFieldWriter waveFieldWriter(wfwBasename, globals, locals, wfwInterval, static_cast<int>(ceil( sqrt(NUMBER_OF_BASIS_FUNCTIONS) )));
 
   int steps = simulate(globals, locals, materialGrid, degreesOfFreedomGrid, waveFieldWriter, sourceterm, cartcomm);
-  /*
-  if (scenario == 0) {
-    double l2error[NUMBER_OF_QUANTITIES];
-    L2error(globals.endTime, globals, materialGrid, degreesOfFreedomGrid, l2error);
+  
+  double local_L2error_squared[NUMBER_OF_QUANTITIES];
+  L2error_squared(globals.endTime, globals, locals, materialGrid, degreesOfFreedomGrid, local_L2error_squared);
+  
+  std::cout << "rank " << locals.rank << " local error" << std::endl;
+  std::cout << "Pressure² " << local_L2error_squared[0] << std::endl;
+  std::cout << "X-Velocity " << local_L2error_squared[1] << std::endl;
+  std::cout << "Y-Velocity " << local_L2error_squared[2] << std::endl;
+  
+  double global_L2error_squared[NUMBER_OF_QUANTITIES];
+  MPI_Reduce(local_L2error_squared,global_L2error_squared,NUMBER_OF_QUANTITIES,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+
+  
+  if (scenario == 0 && locals.rank==0) {
+	square_root_array(global_L2error_squared,NUMBER_OF_QUANTITIES);
     std::cout << "L2 error analysis" << std::endl << "=================" << std::endl;
-    std::cout << "Pressue (p):    " << l2error[0] << std::endl;
-    std::cout << "X-Velocity (u): " << l2error[1] << std::endl;
-    std::cout << "Y-Velocity (v): " << l2error[2] << std::endl;
+    std::cout << "Pressue (p):    " << global_L2error_squared[0] << std::endl;
+    std::cout << "X-Velocity (u): " << global_L2error_squared[1] << std::endl;
+    std::cout << "Y-Velocity (v): " << global_L2error_squared[2] << std::endl;
   }
   
   std::cout << "Total number of timesteps: " << steps << std::endl;
-  */
+  
   MPI_Finalize();
 
  

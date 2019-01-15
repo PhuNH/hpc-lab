@@ -9,11 +9,14 @@ void initialCondition(  GlobalConstants const& globals,
                         Grid<Material>& materialGrid,
                         Grid<DegreesOfFreedom>& degreesOfFreedomGrid  );
 
-void L2error( double time,
+void L2error_squared( double time,
               GlobalConstants const& globals,
+			  LocalConstants const& locals,
               Grid<Material>& materialGrid,
               Grid<DegreesOfFreedom>& degreesOfFreedomGrid,
               double l2error[NUMBER_OF_QUANTITIES]  );
+			  
+void square_root_array(double * array, int length);
 
 void initSourcetermPhi(double xi, double eta, SourceTerm& sourceterm);
 

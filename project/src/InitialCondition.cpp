@@ -51,8 +51,9 @@ void initialCondition(  GlobalConstants const& globals,
   }
 }
 
-void L2error( double time,
+void L2error_squared( double time,
               GlobalConstants const& globals,
+			  LocalConstants const& locals,
               Grid<Material>& materialGrid,
               Grid<DegreesOfFreedom>& degreesOfFreedomGrid,
               double l2error[NUMBER_OF_QUANTITIES]  )
@@ -67,8 +68,8 @@ void L2error( double time,
   
   double area = globals.hx*globals.hy;
 
-  for (int y = 0; y < globals.Y; ++y) {
-    for (int x = 0; x < globals.X; ++x) {
+  for (int y = 0; y < locals.elts_size[1]; ++y) {
+    for (int x = 0; x < locals.elts_size[0]; ++x) {
       DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
       Material& material = materialGrid.get(x, y);
       
@@ -102,10 +103,19 @@ void L2error( double time,
       }      
     }
   }
+  /*
   for (unsigned q = 0; q < NUMBER_OF_QUANTITIES; ++q) {
     l2error[q] = sqrt(l2error[q]);
   }
+  */
 }
+
+void square_root_array(double * array, int length){
+  for (unsigned q = 0; q < length; ++q) {
+    array[q] = sqrt(array[q]);
+  }
+}
+
 
 
 void initSourcetermPhi(double xi, double eta, SourceTerm& sourceterm) {
