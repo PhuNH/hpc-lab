@@ -42,13 +42,13 @@ if env['order'] == 'none':
 
 # Basic compiler setting
 if env['compiler'] == 'intel':
-    env['CC'] = 'icc'
-    env['CXX'] = 'icpc'
-    env['F90'] = 'ifort'
+    env['CC'] = 'mpiicc'
+    env['CXX'] = 'mpiicpc'
+    env['F90'] = 'mpiifort'
 elif env['compiler'] == 'gcc':
-    env['CC'] = 'gcc'
-    env['CXX'] = 'g++'
-    env['F90'] = 'gfortran'
+    env['CC'] = 'mpigcc'
+    env['CXX'] = 'mpigxx'
+    env['F90'] = 'mpif90'
 else:
     assert(false)
 
@@ -66,8 +66,9 @@ env.Append(CFLAGS   = ['-Wall', '-Werror', '-ansi'],
 
 # set (pre-)compiler flags for the compile modes
 if env['compileMode'] == 'debug':
-  env.Append(CFLAGS  = ['-O0', '-g'],
-             CXXFLAGS = ['-O0', '-g'])
+  env.Append(CFLAGS  = ['-O0', '-pg'],
+             CXXFLAGS = ['-O0', '-pg'],
+             LINKFLAGS = ['-pg'])
 elif env['compileMode'] == 'release':
   env.Append(CPPDEFINES = ['NDEBUG'])
   env.Append(CFLAGS   = ['-O3'],

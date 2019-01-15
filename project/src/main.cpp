@@ -8,31 +8,17 @@
 #include "InitialCondition.h"
 #include <mpi.h>
 
-void get_size_subgrid(int index_proc_axis, int nb_procs_axis, int grid_size, int * size_current, int * start){
+void get_size_subgrid(int index_proc_axis, int nb_procs_axis, int grid_size, int * size_current, int * start) {
+	int min_size = ((int) grid_size / nb_procs_axis),
+        remainder = grid_size % nb_procs_axis;
 	
-	int min_size = ((int) grid_size/nb_procs_axis);
-	
-	if(grid_size % nb_procs_axis > index_proc_axis){
+	if (remainder > index_proc_axis) {
 		*size_current = min_size + 1;
-	}
-	else{
+        *start = index_proc_axis * (*size_current);
+	} else {
 		*size_current = min_size;
+        *start = remainder + index_proc_axis * min_size;
 	}
-	
-	if(index_proc_axis == 0){
-		*start = 0;
-	}
-	else{
-		
-		if(grid_size % nb_procs_axis > index_proc_axis){
-			*start = index_proc_axis + index_proc_axis * min_size;
-		}
-		else{
-			*start = grid_size % nb_procs_axis + index_proc_axis * min_size;
-		}
-		
-	}
-	
 }
 
 void initScenario0(GlobalConstants& globals, LocalConstants& locals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid)
@@ -126,7 +112,6 @@ void initScenario3(GlobalConstants& globals, LocalConstants& locals, Grid<Materi
 
 int main(int argc, char** argv)
 {
-  
   int scenario;
   double wfwInterval;
   std::string wfwBasename;
@@ -149,7 +134,7 @@ int main(int argc, char** argv)
     cmd.add(basenameArg);
     cmd.add(intervalArg);
     cmd.add(timeArg);
-   cmd.add(horizontalArg);
+    cmd.add(horizontalArg);
     cmd.add(verticalArg);
     
     cmd.parse(argc, argv);
@@ -160,7 +145,6 @@ int main(int argc, char** argv)
     wfwBasename = basenameArg.getValue();
     wfwInterval = intervalArg.getValue();
     globals.endTime = timeArg.getValue();
-	
 	
 	globals.dims_proc[0] = horizontalArg.getValue();
 	globals.dims_proc[1] = verticalArg.getValue();
@@ -187,7 +171,7 @@ int main(int argc, char** argv)
   MPI_Comm_size(MPI_COMM_WORLD, &globals.nb_procs);
   
   // Initialize cartesian grid
-  int periods[2] = {0, 0}, reorder = 0;
+  int periods[2] = {1, 1}, reorder = 0;
   MPI_Comm cartcomm;
   MPI_Cart_create(MPI_COMM_WORLD, 2, globals.dims_proc, periods, reorder, &cartcomm);
   MPI_Cart_coords(cartcomm, locals.rank, 2, locals.coords_proc);
