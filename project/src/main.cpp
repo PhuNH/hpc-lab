@@ -6,6 +6,7 @@
 #include "Simulator.h"
 #include "Grid.h"
 #include "InitialCondition.h"
+#include "RankDependentOutput.h"
 #include <mpi.h>
 
 void get_size_subgrid(int index_proc_axis, int nb_procs_axis, int grid_size, int * size_current, int * start) {
@@ -118,6 +119,12 @@ int main(int argc, char** argv)
   GlobalConstants globals;
   LocalConstants locals;
   
+  // Initialize MPI functions
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &locals.rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &globals.nb_procs);
+  
+  RankDependentOutput *rdOutput;
   try {
     TCLAP::CmdLine cmd("ADER-DG for linear acoustics.", ' ', "0.1");
     TCLAP::ValueArg<int> scenarioArg("s", "scenario", "Scenario. 0=Convergence test. 1=Checkerboard.", true, 0, "int");
@@ -137,6 +144,9 @@ int main(int argc, char** argv)
     cmd.add(horizontalArg);
     cmd.add(verticalArg);
     
+    rdOutput = new RankDependentOutput(locals.rank);
+    cmd.setOutput(rdOutput);
+    
     cmd.parse(argc, argv);
     
     scenario = scenarioArg.getValue();
@@ -149,26 +159,24 @@ int main(int argc, char** argv)
 	globals.dims_proc[0] = horizontalArg.getValue();
 	globals.dims_proc[1] = verticalArg.getValue();
     
+    delete rdOutput;
+    
     if (scenario < 0 || scenario > 3) {
-      std::cerr << "Unknown scenario." << std::endl;
+      if (locals.rank == 0) std::cerr << "Unknown scenario." << std::endl;
       return -1;
     }
     if (globals.X < 0 || globals.Y < 0) {
-      std::cerr << "X or Y smaller than 0. Does not make sense." << std::endl;
+      if (locals.rank == 0) std::cerr << "X or Y smaller than 0. Does not make sense." << std::endl;
       return -1;
     }
   } catch (TCLAP::ArgException &e) {
-    std::cerr << "Error: " << e.error() << " for arg " << e.argId() << std::endl;
+    delete rdOutput;
+    if (locals.rank == 0) std::cerr << "Error: " << e.error() << " for arg " << e.argId() << std::endl;
     return -1;
   }
   
   globals.hx = 1. / globals.X;
   globals.hy = 1. / globals.Y;
-  
-  // Initialize MPI functions
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &locals.rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &globals.nb_procs);
   
   // Initialize cartesian grid
   int periods[2] = {1, 1}, reorder = 0;
