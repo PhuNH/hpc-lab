@@ -14,10 +14,10 @@ void initialCondition(  GlobalConstants const& globals,
   
   seissol::quadrature::GaussLegendre(points, weights, npoints);
   
-  for (int y = 0; y < locals.elts_size[1]; ++y) {
-    for (int x = 0; x < locals.elts_size[0]; ++x) {
+  for (int y = 0; y < locals.elts_size[0]; ++y) {
+    for (int x = 0; x < locals.elts_size[1]; ++x) {
       DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
-      Material& material = materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]);
+      Material& material = materialGrid.get(x + locals.start_elts[1], y + locals.start_elts[0]);
       
       double scaledWavespeed = sqrt(2.) * material.wavespeed() / 2.;
       
@@ -67,10 +67,10 @@ void L2error_squared( double time,
   
   double area = globals.hx*globals.hy;
 
-  for (int y = 0; y < locals.elts_size[1]; ++y) {
-    for (int x = 0; x < locals.elts_size[0]; ++x) {
+  for (int y = 0; y < locals.elts_size[0]; ++y) {
+    for (int x = 0; x < locals.elts_size[1]; ++x) {
       DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
-      Material& material = materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]);
+      Material& material = materialGrid.get(x + locals.start_elts[1], y + locals.start_elts[0]);
       
       double scaledWavespeed = sqrt(2.) * material.wavespeed() / 2.;
       double omega = 2.*sqrt(2.) * M_PI * material.wavespeed();

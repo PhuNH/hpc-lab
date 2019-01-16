@@ -28,7 +28,7 @@ struct LocalConstants {
   // Index among processor [i_proc,j_proc]
   int coords_proc[2];
   
-  // index among elements : starting element [x_elt_start,y_elt_start];
+  // index among elements : starting element [y_elt_start,x_elt_start];
   int start_elts[2];
   
   // size elements
