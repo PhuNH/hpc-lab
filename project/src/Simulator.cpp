@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
 #include "constants.h"
 #include "Kernels.h"
@@ -28,7 +30,11 @@ int simulate( GlobalConstants const&  globals,
               WaveFieldWriter&        waveFieldWriter,
               SourceTerm&             sourceterm)
 {
-	
+  std::ofstream m_xdmf;
+  std::stringstream ss;
+  ss << locals.rank;
+  m_xdmf.open(("mat" + ss.str() + ".mat").c_str());
+
   Grid<DegreesOfFreedom> timeIntegratedGrid(locals.elts_size[1]+2, locals.elts_size[0]+2); // +2 for ghost layers
   
   double time;
@@ -81,18 +87,16 @@ int simulate( GlobalConstants const&  globals,
         rotateFluxSolver(1., 0., Aplus, rotatedAplus);
         computeFlux(-globals.hy / (globals.hx * globals.hy), GlobalMatrices::Fym1, rotatedAplus, timeIntegrated, degreesOfFreedom);
         
-        if (x == 0) memcpy(&outbuf_y[0][y * sizeof(DegreesOfFreedom)], timeIntegrated, sizeof(DegreesOfFreedom));
-        if (x == locals.elts_size[0] - 1) memcpy(&outbuf_y[1][y * sizeof(DegreesOfFreedom)], timeIntegrated, sizeof(DegreesOfFreedom));
-        if (y == 0) memcpy(&outbuf_x[0][x * sizeof(DegreesOfFreedom)], timeIntegrated, sizeof(DegreesOfFreedom));
-        if (y == locals.elts_size[1] - 1) memcpy(&outbuf_x[1][x * sizeof(DegreesOfFreedom)], timeIntegrated, sizeof(DegreesOfFreedom));
+        if (x == 0) memcpy(&outbuf_y[0][y * NUMBER_OF_DOFS], timeIntegrated, sizeof(DegreesOfFreedom));
+        if (x == locals.elts_size[0] - 1) memcpy(&outbuf_y[1][y * NUMBER_OF_DOFS], timeIntegrated, sizeof(DegreesOfFreedom));
+        if (y == 0) memcpy(&outbuf_x[0][x * NUMBER_OF_DOFS], timeIntegrated, sizeof(DegreesOfFreedom));
+        if (y == locals.elts_size[1] - 1) memcpy(&outbuf_x[1][x * NUMBER_OF_DOFS], timeIntegrated, sizeof(DegreesOfFreedom));
       }
     }
 
-    if (time == globals.maxTimestep) {
-        printf("%d to UP %f %f %f\n", locals.rank, outbuf_x[0][0], outbuf_x[0][1], outbuf_x[0][2]);
-        printf("%d to DOWN %f %f %f\n", locals.rank, outbuf_x[1][0], outbuf_x[1][1], outbuf_x[1][2]);
-        printf("%d to LEFT %f %f %f\n", locals.rank, outbuf_y[0][0], outbuf_y[0][1], outbuf_y[0][2]);
-        printf("%d to RIGHT %f %f %f\n", locals.rank, outbuf_y[1][0], outbuf_y[1][1], outbuf_y[1][2]);
+    if (locals.rank == 1) {
+        printf("At %f %d to UP %f %f %f\n", time, locals.rank, outbuf_x[0][0], outbuf_x[0][NUMBER_OF_DOFS], outbuf_x[0][2*NUMBER_OF_DOFS]);
+        printf("At %f %d to DOWN %f %f %f\n", time, locals.rank, outbuf_x[1][0], outbuf_x[1][NUMBER_OF_DOFS], outbuf_x[1][2*NUMBER_OF_DOFS]);
     }
 	
 	// Barrier : All the timeIntegrated variables have to be updated before data exchange
@@ -106,32 +110,43 @@ int simulate( GlobalConstants const&  globals,
     MPI_Request reqs[8];
     MPI_Status stats[8];
 	
-	MPI_Isend(outbuf_x[0], locals.elts_size[1]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[UP], tag, MPI_COMM_WORLD, &reqs[UP]);
-    MPI_Irecv(inbuf_x[0], locals.elts_size[1]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[UP], tag, MPI_COMM_WORLD, &reqs[UP+4]);
-    MPI_Isend(outbuf_x[1], locals.elts_size[1]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[DOWN], tag, MPI_COMM_WORLD, &reqs[DOWN]);
-    MPI_Irecv(inbuf_x[1], locals.elts_size[1]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[DOWN], tag, MPI_COMM_WORLD, &reqs[DOWN+4]);
+	MPI_Isend(outbuf_x[0], locals.elts_size[1]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[UP], tag + locals.rank, MPI_COMM_WORLD, &reqs[UP]);
+    MPI_Irecv(inbuf_x[0], locals.elts_size[1]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[UP], tag + locals.rank, MPI_COMM_WORLD, &reqs[UP+4]);
+    MPI_Isend(outbuf_x[1], locals.elts_size[1]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[DOWN], tag + locals.adj_list[DOWN], MPI_COMM_WORLD, &reqs[DOWN]);
+    MPI_Irecv(inbuf_x[1], locals.elts_size[1]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[DOWN], tag + locals.adj_list[DOWN], MPI_COMM_WORLD, &reqs[DOWN+4]);
 
-	MPI_Isend(outbuf_y[0], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[LEFT], tag, MPI_COMM_WORLD, &reqs[LEFT]);
-    MPI_Irecv(inbuf_y[0], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[LEFT], tag, MPI_COMM_WORLD, &reqs[LEFT+4]);
-    MPI_Isend(outbuf_y[1], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[RIGHT], tag, MPI_COMM_WORLD, &reqs[RIGHT]);
-    MPI_Irecv(inbuf_y[1], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[RIGHT], tag, MPI_COMM_WORLD, &reqs[RIGHT+4]);
+	MPI_Isend(outbuf_y[0], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[LEFT], tag + locals.rank, MPI_COMM_WORLD, &reqs[LEFT]);
+    MPI_Irecv(inbuf_y[0], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[LEFT], tag + locals.rank, MPI_COMM_WORLD, &reqs[LEFT+4]);
+    MPI_Isend(outbuf_y[1], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[RIGHT], tag + locals.adj_list[RIGHT], MPI_COMM_WORLD, &reqs[RIGHT]);
+    MPI_Irecv(inbuf_y[1], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[RIGHT], tag + locals.adj_list[RIGHT], MPI_COMM_WORLD, &reqs[RIGHT+4]);
 	
 	MPI_Waitall(8, reqs, stats);
     
-    if (time == globals.maxTimestep) {
-        printf("%d from UP %f %f %f\n", locals.rank, inbuf_x[0][0], inbuf_x[0][1], inbuf_x[0][2]);
-        printf("%d from DOWN %f %f %f\n", locals.rank, inbuf_x[1][0], inbuf_x[1][1], inbuf_x[1][2]);
-        printf("%d from LEFT %f %f %f\n", locals.rank, inbuf_y[0][0], inbuf_y[0][1], inbuf_y[0][2]);
-        printf("%d from RIGHT %f %f %f\n", locals.rank, inbuf_y[1][0], inbuf_y[1][1], inbuf_y[1][2]);
+    if (locals.rank == 3) {
+        printf("At %f %d from UP %f %f %f\n", time, locals.rank, inbuf_x[0][0], inbuf_x[0][NUMBER_OF_DOFS], inbuf_x[0][2*NUMBER_OF_DOFS]);
+        printf("At %f %d from DOWN %f %f %f\n", time, locals.rank, inbuf_x[1][0], inbuf_x[1][NUMBER_OF_DOFS], inbuf_x[1][2*NUMBER_OF_DOFS]);
     }
     
     for (int x = 1; x <= locals.elts_size[1]; ++x) {
-      memcpy(timeIntegratedGrid.get(x, 0), &inbuf_x[0][(x-1) * sizeof(DegreesOfFreedom)], sizeof(DegreesOfFreedom));
-      memcpy(timeIntegratedGrid.get(x, locals.elts_size[1]+1), &inbuf_x[1][(x-1) * sizeof(DegreesOfFreedom)], sizeof(DegreesOfFreedom));
+      memcpy(timeIntegratedGrid.get(x, 0), &inbuf_x[0][(x-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
+      memcpy(timeIntegratedGrid.get(x, locals.elts_size[0]+1), &inbuf_x[1][(x-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
     }
     for (int y = 1; y <= locals.elts_size[0]; ++y) {
-      memcpy(timeIntegratedGrid.get(0, y), &inbuf_y[0][(y-1) * sizeof(DegreesOfFreedom)], sizeof(DegreesOfFreedom));
-      memcpy(timeIntegratedGrid.get(locals.elts_size[0]+1, y), &inbuf_y[1][(y-1) * sizeof(DegreesOfFreedom)], sizeof(DegreesOfFreedom));
+      memcpy(timeIntegratedGrid.get(0, y), &inbuf_y[0][(y-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
+      memcpy(timeIntegratedGrid.get(locals.elts_size[1]+1, y), &inbuf_y[1][(y-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
+    }
+    
+    if (time == globals.maxTimestep) {
+      m_xdmf << locals.rank << std::endl;
+      for (int y = 0; y < locals.elts_size[0] + 2; ++y) {
+        for (int x = 0; x < locals.elts_size[1] + 2; ++x) {
+          DegreesOfFreedom& timeIntegrated = timeIntegratedGrid.get(x, y);
+          m_xdmf << timeIntegrated[0] << " ";
+        }
+        m_xdmf << std::endl;
+      }
+      
+      m_xdmf.close();
     }
 
     for (int y = 0; y < locals.elts_size[0]; ++y) {

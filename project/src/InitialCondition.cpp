@@ -27,8 +27,8 @@ void initialCondition(  GlobalConstants const& globals,
           double eta = (points[j]+1.)/2.;
           double weight = weights[i] * weights[j] / 4.;
 
-          double xp = xi*globals.hx + x*globals.hx;
-          double yp = eta*globals.hy + y*globals.hy;
+          double xp = xi*globals.hx + (x+locals.start_elts[1])*globals.hx;
+          double yp = eta*globals.hy + (y+locals.start_elts[0])*globals.hy;
           double sn = sin(-2.*M_PI*xp - 2.*M_PI*yp);
           double f[] = {material.K0*sn, scaledWavespeed*sn, scaledWavespeed*sn};
 
@@ -81,8 +81,8 @@ void L2error_squared( double time,
           double eta = (points[j]+1.)/2.;
           double weight = weights[i] * weights[j] / 4.;
 
-          double xp = xi*globals.hx + x*globals.hx;
-          double yp = eta*globals.hy + y*globals.hy;
+          double xp = xi*globals.hx + (x+locals.start_elts[1])*globals.hx;
+          double yp = eta*globals.hy + (y+locals.start_elts[0])*globals.hy;
           double sn = sin(omega*time-2.*M_PI*xp - 2.*M_PI*yp);
           double f[] = {material.K0*sn, scaledWavespeed*sn, scaledWavespeed*sn};
 
