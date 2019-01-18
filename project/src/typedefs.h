@@ -25,13 +25,13 @@ struct LocalConstants {
 	
   int rank;
   
-  // Index among processor [i_proc,j_proc]
+  // Index among processor [i_proc,j_proc] with i on vertical axis, j on horizontal axis
   int coords_proc[2];
   
-  // index among elements : starting element [y_elt_start,x_elt_start];
+  // index among elements : starting element [x_elt_start,y_elt_start];
   int start_elts[2];
   
-  // size elements
+  // size elements : (x,y)
   int elts_size[2];
   
   // rank processors [UP, DOWN, LEFT, RIGHT]

@@ -185,14 +185,14 @@ int main(int argc, char** argv)
   MPI_Cart_coords(cartcomm, locals.rank, 2, locals.coords_proc);
   MPI_Cart_shift(cartcomm, 0, 1, &locals.adj_list[UP], &locals.adj_list[DOWN]);
   MPI_Cart_shift(cartcomm, 1, 1, &locals.adj_list[LEFT], &locals.adj_list[RIGHT]);
-  printf("%d %d %d %d %d\n", locals.rank, locals.adj_list[UP], locals.adj_list[DOWN], locals.adj_list[LEFT], locals.adj_list[RIGHT]);
+  
   // Initializing locals variable
-  get_size_subgrid(locals.coords_proc[0], globals.dims_proc[0], globals.Y, &locals.elts_size[0], &locals.start_elts[0]);
-  get_size_subgrid(locals.coords_proc[1], globals.dims_proc[1], globals.X, &locals.elts_size[1], &locals.start_elts[1]);
+  get_size_subgrid(locals.coords_proc[0], globals.dims_proc[0], globals.Y, &locals.elts_size[1], &locals.start_elts[1]);
+  get_size_subgrid(locals.coords_proc[1], globals.dims_proc[1], globals.X, &locals.elts_size[0], &locals.start_elts[0]);
   
-  printf("Rank : %d -- iproc = %d -- jproc = %d -- (ystart = %d, xstart = %d) -- (ysize = %d, xsize = %d) \n",locals.rank,locals.coords_proc [0],locals.coords_proc[1],locals.start_elts[0],locals.start_elts[1],locals.elts_size[0],locals.elts_size[1]);
+  printf("Rank : %d -- iproc = %d -- jproc = %d -- (xstart = %d, ystart = %d) -- (xsize = %d, ysize = %d) \n",locals.rank,locals.coords_proc [0],locals.coords_proc[1],locals.start_elts[0],locals.start_elts[1],locals.elts_size[0],locals.elts_size[1]);
   
-  Grid<DegreesOfFreedom> degreesOfFreedomGrid(locals.elts_size[1], locals.elts_size[0]); // Change with MPI structure
+  Grid<DegreesOfFreedom> degreesOfFreedomGrid(locals.elts_size[0], locals.elts_size[1]); // Change with MPI structure
   Grid<Material> materialGrid(globals.X, globals.Y); // Each node stores all : could be optimized - to see later
   SourceTerm sourceterm;
   

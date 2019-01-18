@@ -14,10 +14,10 @@ void initialCondition(  GlobalConstants const& globals,
   
   seissol::quadrature::GaussLegendre(points, weights, npoints);
   
-  for (int y = 0; y < locals.elts_size[0]; ++y) {
-    for (int x = 0; x < locals.elts_size[1]; ++x) {
+  for (int y = 0; y < locals.elts_size[1]; ++y) {
+    for (int x = 0; x < locals.elts_size[0]; ++x) {
       DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
-      Material& material = materialGrid.get(x + locals.start_elts[1], y + locals.start_elts[0]);
+      Material& material = materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]);
       
       double scaledWavespeed = sqrt(2.) * material.wavespeed() / 2.;
       
@@ -27,8 +27,8 @@ void initialCondition(  GlobalConstants const& globals,
           double eta = (points[j]+1.)/2.;
           double weight = weights[i] * weights[j] / 4.;
 
-          double xp = xi*globals.hx + (x+locals.start_elts[1])*globals.hx;
-          double yp = eta*globals.hy + (y+locals.start_elts[0])*globals.hy;
+          double xp = xi*globals.hx + (x + locals.start_elts[0])*globals.hx;
+          double yp = eta*globals.hy + (y + locals.start_elts[1])*globals.hy;
           double sn = sin(-2.*M_PI*xp - 2.*M_PI*yp);
           double f[] = {material.K0*sn, scaledWavespeed*sn, scaledWavespeed*sn};
 
@@ -67,10 +67,10 @@ void L2error_squared( double time,
   
   double area = globals.hx*globals.hy;
 
-  for (int y = 0; y < locals.elts_size[0]; ++y) {
-    for (int x = 0; x < locals.elts_size[1]; ++x) {
+  for (int y = 0; y < locals.elts_size[1]; ++y) {
+    for (int x = 0; x < locals.elts_size[0]; ++x) {
       DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
-      Material& material = materialGrid.get(x + locals.start_elts[1], y + locals.start_elts[0]);
+      Material& material = materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]);
       
       double scaledWavespeed = sqrt(2.) * material.wavespeed() / 2.;
       double omega = 2.*sqrt(2.) * M_PI * material.wavespeed();
@@ -81,8 +81,8 @@ void L2error_squared( double time,
           double eta = (points[j]+1.)/2.;
           double weight = weights[i] * weights[j] / 4.;
 
-          double xp = xi*globals.hx + (x+locals.start_elts[1])*globals.hx;
-          double yp = eta*globals.hy + (y+locals.start_elts[0])*globals.hy;
+          double xp = xi*globals.hx + (x + locals.start_elts[0])*globals.hx;
+          double yp = eta*globals.hy + (y + locals.start_elts[1])*globals.hy;
           double sn = sin(omega*time-2.*M_PI*xp - 2.*M_PI*yp);
           double f[] = {material.K0*sn, scaledWavespeed*sn, scaledWavespeed*sn};
 
