@@ -1,6 +1,7 @@
 #ifndef WAVEFIELDWRITER_H_
 #define WAVEFIELDWRITER_H_
 
+#include <mpi.h>
 #include <string>
 #include <fstream>
 #include "typedefs.h"
@@ -11,8 +12,9 @@ public:
   WaveFieldWriter(std::string const& baseName, GlobalConstants const& globals, LocalConstants const& locals, double interval, int pointsPerDim);
   ~WaveFieldWriter();
   
-  void writeTimestep(double time, Grid<DegreesOfFreedom>& degreesOfFreedomGrid, bool forceWrite = false);
+  void writeTimestep(double time, Grid<DegreesOfFreedom>& degreesOfFreedomGrid, GlobalConstants const& globals, LocalConstants const& locals, bool forceWrite = false);
 private:
+  int           m_rank;
   unsigned      m_step;
   std::string   m_dirName;
   std::string   m_baseName;

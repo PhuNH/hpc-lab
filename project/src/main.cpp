@@ -190,7 +190,7 @@ int main(int argc, char** argv)
   get_size_subgrid(locals.coords_proc[0], globals.dims_proc[0], globals.Y, &locals.elts_size[1], &locals.start_elts[1]);
   get_size_subgrid(locals.coords_proc[1], globals.dims_proc[1], globals.X, &locals.elts_size[0], &locals.start_elts[0]);
   
-  printf("Rank : %d -- iproc = %d -- jproc = %d -- (xstart = %d, ystart = %d) -- (xsize = %d, ysize = %d) \n",locals.rank,locals.coords_proc [0],locals.coords_proc[1],locals.start_elts[0],locals.start_elts[1],locals.elts_size[0],locals.elts_size[1]);
+  //printf("Rank : %d -- iproc = %d -- jproc = %d -- (xstart = %d, ystart = %d) -- (xsize = %d, ysize = %d) \n",locals.rank,locals.coords_proc [0],locals.coords_proc[1],locals.start_elts[0],locals.start_elts[1],locals.elts_size[0],locals.elts_size[1]);
   
   Grid<DegreesOfFreedom> degreesOfFreedomGrid(locals.elts_size[0], locals.elts_size[1]); // Change with MPI structure
   Grid<Material> materialGrid(globals.X, globals.Y); // Each node stores all : could be optimized - to see later
@@ -223,7 +223,7 @@ int main(int argc, char** argv)
     double local_L2error_squared[NUMBER_OF_QUANTITIES];
     L2error_squared(globals.endTime, globals, locals, materialGrid, degreesOfFreedomGrid, local_L2error_squared);
     
-    printf("rank %d p %f vx %f vy %f\n", locals.rank, local_L2error_squared[0], local_L2error_squared[1], local_L2error_squared[2]);
+    //printf("rank %d p %f vx %f vy %f\n", locals.rank, local_L2error_squared[0], local_L2error_squared[1], local_L2error_squared[2]);
     
     double global_L2error_squared[NUMBER_OF_QUANTITIES];
     MPI_Reduce(local_L2error_squared,global_L2error_squared,NUMBER_OF_QUANTITIES,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);

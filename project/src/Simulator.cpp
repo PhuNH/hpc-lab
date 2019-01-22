@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-#include <fstream>
-#include <sstream>
 
 #include "constants.h"
 #include "Kernels.h"
@@ -30,16 +28,12 @@ int simulate( GlobalConstants const&  globals,
               WaveFieldWriter&        waveFieldWriter,
               SourceTerm&             sourceterm)
 {
-  std::ofstream m_xdmf;
-  std::stringstream ss;
-  ss << locals.rank;
-  m_xdmf.open(("mat" + ss.str() + ".mat").c_str());
-
   Grid<DegreesOfFreedom> timeIntegratedGrid(locals.elts_size[0]+2, locals.elts_size[1]+2); // +2 for ghost layers
   
   double time;
   int step = 0;
   
+  // TODO get rid of inbuf_x and outbuf_x
   double **inbuf_x, **inbuf_y, **outbuf_x, **outbuf_y;
   inbuf_x = (double**) _mm_malloc(2*sizeof(double*), ALIGNMENT);
   inbuf_y = (double**) _mm_malloc(2*sizeof(double*), ALIGNMENT);
@@ -54,7 +48,7 @@ int simulate( GlobalConstants const&  globals,
   }
   
   for (time = 0.0; time < globals.endTime; time += globals.maxTimestep) {
-    waveFieldWriter.writeTimestep(time, degreesOfFreedomGrid);
+    waveFieldWriter.writeTimestep(time, degreesOfFreedomGrid, globals, locals);
     
     double timestep = std::min(globals.maxTimestep, globals.endTime - time);
 	
@@ -94,13 +88,6 @@ int simulate( GlobalConstants const&  globals,
       }
     }
 
-	/*
-    if (locals.rank == 1) {
-        printf("At %f %d to UP %f %f %f\n", time, locals.rank, outbuf_x[0][0], outbuf_x[0][NUMBER_OF_DOFS], outbuf_x[0][2*NUMBER_OF_DOFS]);
-        printf("At %f %d to DOWN %f %f %f\n", time, locals.rank, outbuf_x[1][0], outbuf_x[1][NUMBER_OF_DOFS], outbuf_x[1][2*NUMBER_OF_DOFS]);
-    }
-	*/
-	
 	// Barrier : All the timeIntegrated variables have to be updated before data exchange
 	MPI_Barrier(MPI_COMM_WORLD);
 	
@@ -111,7 +98,7 @@ int simulate( GlobalConstants const&  globals,
 	int tag = 13;
     MPI_Request reqs[8];
     MPI_Status stats[8];
-	
+	// TODO collective operations?
 	MPI_Isend(outbuf_x[0], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[UP], tag + locals.rank, MPI_COMM_WORLD, &reqs[UP]);
     MPI_Irecv(inbuf_x[0], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[UP], tag + locals.rank, MPI_COMM_WORLD, &reqs[UP+4]);
     MPI_Isend(outbuf_x[1], locals.elts_size[0]*NUMBER_OF_DOFS, MPI_DOUBLE, locals.adj_list[DOWN], tag + locals.adj_list[DOWN], MPI_COMM_WORLD, &reqs[DOWN]);
@@ -124,13 +111,6 @@ int simulate( GlobalConstants const&  globals,
 	
 	MPI_Waitall(8, reqs, stats);
     
-	/*
-    if (locals.rank == 3) {
-        printf("At %f %d from UP %f %f %f\n", time, locals.rank, inbuf_x[0][0], inbuf_x[0][NUMBER_OF_DOFS], inbuf_x[0][2*NUMBER_OF_DOFS]);
-        printf("At %f %d from DOWN %f %f %f\n", time, locals.rank, inbuf_x[1][0], inbuf_x[1][NUMBER_OF_DOFS], inbuf_x[1][2*NUMBER_OF_DOFS]);
-    }
-	*/
-    
     for (int x = 1; x <= locals.elts_size[0]; ++x) {
       memcpy(timeIntegratedGrid.get(x, 0), &inbuf_x[0][(x-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
       memcpy(timeIntegratedGrid.get(x, locals.elts_size[1]+1), &inbuf_x[1][(x-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
@@ -138,19 +118,6 @@ int simulate( GlobalConstants const&  globals,
     for (int y = 1; y <= locals.elts_size[1]; ++y) {
       memcpy(timeIntegratedGrid.get(0, y), &inbuf_y[0][(y-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
       memcpy(timeIntegratedGrid.get(locals.elts_size[0]+1, y), &inbuf_y[1][(y-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
-    }
-    
-    if (time == globals.maxTimestep) {
-      m_xdmf << locals.rank << std::endl;
-      for (int y = 0; y < locals.elts_size[1] + 2; ++y) {
-        for (int x = 0; x < locals.elts_size[0] + 2; ++x) {
-          DegreesOfFreedom& timeIntegrated = timeIntegratedGrid.get(x, y);
-          m_xdmf << timeIntegrated[0] << " ";
-        }
-        m_xdmf << std::endl;
-      }
-      
-      m_xdmf.close();
     }
 
     for (int y = 0; y < locals.elts_size[1]; ++y) {
@@ -205,7 +172,7 @@ int simulate( GlobalConstants const&  globals,
   _mm_free(outbuf_x);
   _mm_free(outbuf_y);
   
-  waveFieldWriter.writeTimestep(globals.endTime, degreesOfFreedomGrid, true);
+  waveFieldWriter.writeTimestep(globals.endTime, degreesOfFreedomGrid, globals, locals, true);
   
   return step;
 }
