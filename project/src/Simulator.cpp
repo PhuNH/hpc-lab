@@ -80,7 +80,7 @@ int simulate( GlobalConstants const&  globals,
     
     double timestep = std::min(globals.maxTimestep, globals.endTime - time);
     
-    #pragma omp parallel for num_threads(4)
+    #pragma omp parallel for
     for (int k = 0; k < locals.elts_size[1]*locals.elts_size[0]; k++) {
         int x,y;
         x = (int) k / locals.elts_size[1];
@@ -164,19 +164,19 @@ int simulate( GlobalConstants const&  globals,
     for (int i = 0; i < 4; i++)
       MPI_Win_wait(wins[i]);
     
-    #pragma omp parallel for num_threads(4)
+    #pragma omp parallel for
     for (int x = 1; x <= locals.elts_size[0]; ++x) {
       memcpy(timeIntegratedGrid.get(x, 0), &inbuf_x[0][(x-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
       memcpy(timeIntegratedGrid.get(x, locals.elts_size[1]+1), &inbuf_x[1][(x-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
     }
     
-    #pragma omp parallel for num_threads(4)
+    #pragma omp parallel for
     for (int y = 1; y <= locals.elts_size[1]; ++y) {
       memcpy(timeIntegratedGrid.get(0, y), &inbuf_y[0][(y-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
       memcpy(timeIntegratedGrid.get(locals.elts_size[0]+1, y), &inbuf_y[1][(y-1) * NUMBER_OF_DOFS], sizeof(DegreesOfFreedom));
     }
 
-    #pragma omp parallel for num_threads(4)
+    #pragma omp parallel for
     for (int k = 0; k < locals.elts_size[1]*locals.elts_size[0]; k++) {
         int x,y;
         x = (int) k / locals.elts_size[1];
