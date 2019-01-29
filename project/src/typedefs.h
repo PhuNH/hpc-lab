@@ -15,6 +15,23 @@ struct GlobalConstants {
   double maxTimestep;
   double endTime;
   
+  double hxKxiT[GLOBAL_MATRIX_SIZE];
+  double hyKetaT[GLOBAL_MATRIX_SIZE];
+  double hxKxi[GLOBAL_MATRIX_SIZE];
+  double hyKeta[GLOBAL_MATRIX_SIZE];
+  
+  double hxFxm0[GLOBAL_MATRIX_SIZE];
+  double hxFxm1[GLOBAL_MATRIX_SIZE];
+  double hyFym0[GLOBAL_MATRIX_SIZE];
+  double hyFym1[GLOBAL_MATRIX_SIZE];
+  double hxFxp0[GLOBAL_MATRIX_SIZE];
+  double hxFxp1[GLOBAL_MATRIX_SIZE];
+  double hyFyp0[GLOBAL_MATRIX_SIZE];
+  double hyFyp1[GLOBAL_MATRIX_SIZE];
+  
+  void (*dgemm_beta_0)(const double*, const double*, double*); // NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_BASIS_FUNCTIONS
+  void (*dgemm_beta_1)(const double*, const double*, double*); // NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES
+  
   // Size of the processors grid [int procs_y_axis,int procs_x_axis]
   int dims_proc[2];
   
@@ -44,8 +61,8 @@ struct LocalConstants {
 struct Material {
   double K0;
   double rho0;
-  
-  inline double wavespeed() const { return sqrt(K0/rho0); }
+  double wavespeed;
+//  inline double wavespeed() const { return sqrt(K0/rho0); }
 };
 
 struct SourceTerm {

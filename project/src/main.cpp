@@ -1,5 +1,6 @@
 #include <cmath>
 #include <iostream>
+#include <mpi.h>
 
 #include "tclap/CmdLine.h"
 #include "typedefs.h"
@@ -7,7 +8,33 @@
 #include "Grid.h"
 #include "InitialCondition.h"
 #include "RankDependentOutput.h"
-#include <mpi.h>
+#include "GlobalMatrices.h"
+#include "microkernels.h"
+
+void computeAuxMatrices(GlobalConstants& globals)
+{
+    double  factorx = -globals.hx / (globals.hx * globals.hy),
+            factory = -globals.hy / (globals.hx * globals.hy),
+            hx_1 = 1.0 / globals.hx,
+            hy_1 = 1.0 / globals.hy;
+    
+    for (int i = 0; i < GLOBAL_MATRIX_SIZE; ++i) {
+        globals.hxKxiT[i]   = (-hx_1) * (GlobalMatrices::KxiT[i]);
+        globals.hyKetaT[i]  = (-hy_1) * (GlobalMatrices::KetaT[i]);
+        globals.hxKxi[i]    = hx_1 * (GlobalMatrices::Kxi[i]);
+        globals.hyKeta[i]   = hy_1 * (GlobalMatrices::Keta[i]);
+        
+        globals.hxFxm0[i] = factorx * (GlobalMatrices::Fxm0[i]);
+        globals.hxFxm1[i] = factorx * (GlobalMatrices::Fxm1[i]);
+        globals.hyFym0[i] = factory * (GlobalMatrices::Fym0[i]);
+        globals.hyFym1[i] = factory * (GlobalMatrices::Fym1[i]);
+        
+        globals.hxFxp0[i] = factorx * (GlobalMatrices::Fxp0[i]);
+        globals.hxFxp1[i] = factorx * (GlobalMatrices::Fxp1[i]);
+        globals.hyFyp0[i] = factory * (GlobalMatrices::Fyp0[i]);
+        globals.hyFyp1[i] = factory * (GlobalMatrices::Fyp1[i]);
+    }
+}
 
 void get_size_subgrid(int index_proc_axis, int nb_procs_axis, int grid_size, int * size_current, int * start) {
 	int min_size = ((int) grid_size / nb_procs_axis),
@@ -46,14 +73,16 @@ void initScenario1(GlobalConstants& globals, LocalConstants& locals, Grid<Materi
       if (matId == 0) {
         material.rho0 = 1.;
         material.K0 = 2.;
+        material.wavespeed = sqrt(2./1.);
       } else {
         material.rho0 = 2.;
         material.K0 = 0.5;
+        material.wavespeed = sqrt(0.5/2.);
       }
     }
   }
 
-  initialCondition(globals, locals, materialGrid, degreesOfFreedomGrid);
+  initialCondition(globals, materialGrid, degreesOfFreedomGrid);
 }
 
 double sourceFunctionAntiderivative(double time)
@@ -61,7 +90,7 @@ double sourceFunctionAntiderivative(double time)
   return sin(time);
 }
 
-void initSourceTerm23(GlobalConstants& globals, LocalConstants& locals, SourceTerm& sourceterm)
+void initSourceTerm23(GlobalConstants& globals, SourceTerm& sourceterm)
 {
   sourceterm.quantity = 0; // pressure source
   double xs = 0.5;
@@ -76,20 +105,21 @@ void initSourceTerm23(GlobalConstants& globals, LocalConstants& locals, SourceTe
   sourceterm.antiderivative = sourceFunctionAntiderivative;  
 }
 
-void initScenario2(GlobalConstants& globals, LocalConstants& locals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid, SourceTerm& sourceterm)
+void initScenario2(GlobalConstants& globals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid, SourceTerm& sourceterm)
 {
   for (int y = 0; y < globals.Y; ++y) {
     for (int x = 0; x < globals.X; ++x) {
       Material& material = materialGrid.get(x, y);
       material.rho0 = 1.;
       material.K0 = 2.;
+      material.wavespeed = sqrt(2./1.);
     }
   }
   
-  initSourceTerm23(globals, locals, sourceterm);
+  initSourceTerm23(globals, sourceterm);
 }
 
-void initScenario3(GlobalConstants& globals, LocalConstants& locals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid, SourceTerm& sourceterm)
+void initScenario3(GlobalConstants& globals, Grid<Material>& materialGrid, Grid<DegreesOfFreedom>& degreesOfFreedomGrid, SourceTerm& sourceterm)
 {
   for (int y = 0; y < globals.Y; ++y) {
     for (int x = 0; x < globals.X; ++x) {
@@ -101,14 +131,16 @@ void initScenario3(GlobalConstants& globals, LocalConstants& locals, Grid<Materi
       if (matId == 0) {
         material.rho0 = 1.;
         material.K0 = 2.;
+        material.wavespeed = sqrt(2./1.);
       } else {
         material.rho0 = 2.;
         material.K0 = 0.5;
+        material.wavespeed = sqrt(0.5/2.);
       }
     }
   }
   
-  initSourceTerm23(globals, locals, sourceterm);
+  initSourceTerm23(globals, sourceterm);
 }
 
 int main(int argc, char** argv)
@@ -209,10 +241,10 @@ int main(int argc, char** argv)
       initScenario1(globals, locals, materialGrid, degreesOfFreedomGrid);
       break;
     case 2:
-      initScenario2(globals, locals, materialGrid, degreesOfFreedomGrid, sourceterm);
+      initScenario2(globals, materialGrid, degreesOfFreedomGrid, sourceterm);
       break;
     case 3:
-      initScenario3(globals, locals, materialGrid, degreesOfFreedomGrid, sourceterm);
+      initScenario3(globals, materialGrid, degreesOfFreedomGrid, sourceterm);
       break;
     default:
       break;

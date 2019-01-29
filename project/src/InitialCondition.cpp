@@ -19,7 +19,7 @@ void initialCondition(  GlobalConstants const& globals,
       DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
       Material& material = materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]);
       
-      double scaledWavespeed = sqrt(2.) * material.wavespeed() / 2.;
+      double scaledWavespeed = sqrt(2.) * material.wavespeed / 2.;
       
       for (int i = 0; i < npoints; ++i) {
         double xi = (points[i]+1.)/2.;
@@ -72,8 +72,8 @@ void L2error_squared( double time,
       DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
       Material& material = materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]);
       
-      double scaledWavespeed = sqrt(2.) * material.wavespeed() / 2.;
-      double omega = 2.*sqrt(2.) * M_PI * material.wavespeed();
+      double scaledWavespeed = sqrt(2.) * material.wavespeed / 2.;
+      double omega = 2.*sqrt(2.) * M_PI * material.wavespeed;
       
       for (int i = 0; i < npoints; ++i) {
         double xi = (points[i]+1.)/2.;

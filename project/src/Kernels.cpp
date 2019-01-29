@@ -27,7 +27,7 @@ void computeAder( double                  timestep,
   
   for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {  
     // tmp = Kxi^T * degreesOfFreedom
-    DGEMM(  NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_BASIS_FUNCTIONS,
+    /*DGEMM(  NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_BASIS_FUNCTIONS,
             1.0, GlobalMatrices::KxiT, NUMBER_OF_BASIS_FUNCTIONS,
             derivatives[der-1], NUMBER_OF_BASIS_FUNCTIONS,
             0.0, tmp, NUMBER_OF_BASIS_FUNCTIONS );
@@ -48,7 +48,11 @@ void computeAder( double                  timestep,
     DGEMM(  NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES,
             -1.0 / globals.hy, tmp, NUMBER_OF_BASIS_FUNCTIONS,
             B, NUMBER_OF_QUANTITIES,
-            1.0, derivatives[der], NUMBER_OF_BASIS_FUNCTIONS );
+            1.0, derivatives[der], NUMBER_OF_BASIS_FUNCTIONS );*/
+    (*globals.dgemm_beta_0)(globals.hxKxiT, derivatives[der-1], tmp);
+    (*globals.dgemm_beta_1)(tmp, A, derivatives[der]);
+    (*globals.dgemm_beta_0)(globals.hyKetaT, derivatives[der-1], tmp);
+    (*globals.dgemm_beta_1)(tmp, B, derivatives[der]);
 
     factor *= timestep / (der + 1);
     for (unsigned dof = 0; dof < NUMBER_OF_DOFS; ++dof) {
@@ -60,7 +64,7 @@ void computeAder( double                  timestep,
 void computeVolumeIntegral( GlobalConstants const&  globals,
                             Material const&         material,
                             DegreesOfFreedom const& timeIntegrated,
-                            DegreesOfFreedom&       degreesOfFreedom )
+                            DegreesOfFreedom&       degreesOfFreedom)
 {
   double A[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
   double B[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
@@ -70,7 +74,7 @@ void computeVolumeIntegral( GlobalConstants const&  globals,
   computeB(material, B);
   
   // Computes tmp = Kxi * timeIntegrated
-  DGEMM(  NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_BASIS_FUNCTIONS,
+  /*DGEMM(  NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_BASIS_FUNCTIONS,
           1.0, GlobalMatrices::Kxi, NUMBER_OF_BASIS_FUNCTIONS,
           timeIntegrated, NUMBER_OF_BASIS_FUNCTIONS,
           0.0, tmp, NUMBER_OF_BASIS_FUNCTIONS );
@@ -91,10 +95,14 @@ void computeVolumeIntegral( GlobalConstants const&  globals,
   DGEMM(  NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES,
           1.0 / globals.hy, tmp, NUMBER_OF_BASIS_FUNCTIONS,
           B, NUMBER_OF_QUANTITIES,
-          1.0, degreesOfFreedom, NUMBER_OF_BASIS_FUNCTIONS );
+          1.0, degreesOfFreedom, NUMBER_OF_BASIS_FUNCTIONS );*/
+  (*globals.dgemm_beta_0)(globals.hxKxi, timeIntegrated, tmp);
+  (*globals.dgemm_beta_1)(tmp, A, degreesOfFreedom);
+  (*globals.dgemm_beta_0)(globals.hyKeta, timeIntegrated, tmp);
+  (*globals.dgemm_beta_1)(tmp, B, degreesOfFreedom);
 }
 
-void computeFlux( double                  factor,
+void computeFlux( GlobalConstants const&  globals,
                   double const            fluxMatrix[NUMBER_OF_BASIS_FUNCTIONS*NUMBER_OF_BASIS_FUNCTIONS],
                   double const            rotatedFluxSolver[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES],
                   DegreesOfFreedom const& timeIntegrated,
@@ -103,7 +111,7 @@ void computeFlux( double                  factor,
   double tmp[NUMBER_OF_DOFS] = {}; // zero initialisation
   
   // Computes tmp = fluxMatrix * timeIntegrated
-  DGEMM(  NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_BASIS_FUNCTIONS,
+  /*DGEMM(  NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_BASIS_FUNCTIONS,
           1.0, fluxMatrix, NUMBER_OF_BASIS_FUNCTIONS,
           timeIntegrated, NUMBER_OF_BASIS_FUNCTIONS,
           0.0, tmp, NUMBER_OF_BASIS_FUNCTIONS );
@@ -112,5 +120,7 @@ void computeFlux( double                  factor,
   DGEMM(  NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES,
           factor, tmp, NUMBER_OF_BASIS_FUNCTIONS,
           rotatedFluxSolver, NUMBER_OF_QUANTITIES,
-          1.0, degreesOfFreedom, NUMBER_OF_BASIS_FUNCTIONS );
+          1.0, degreesOfFreedom, NUMBER_OF_BASIS_FUNCTIONS );*/
+  (*globals.dgemm_beta_0)(fluxMatrix, timeIntegrated, tmp);
+  (*globals.dgemm_beta_1)(tmp, rotatedFluxSolver, degreesOfFreedom);
 }

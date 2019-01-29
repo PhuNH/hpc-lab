@@ -14,7 +14,7 @@ double determineTimestep(double hx, double hy, Grid<Material>& materialGrid)
   double maxWaveSpeed = 0.0;
   for (int y = 0; y < materialGrid.Y(); ++y) {
     for (int x = 0; x < materialGrid.X(); ++x) {
-      maxWaveSpeed = std::max(maxWaveSpeed, materialGrid.get(x, y).wavespeed());
+      maxWaveSpeed = std::max(maxWaveSpeed, materialGrid.get(x, y).wavespeed);
     }
   }
   
@@ -22,13 +22,25 @@ double determineTimestep(double hx, double hy, Grid<Material>& materialGrid)
 }
 
 int simulate( GlobalConstants const&  globals,
-			  LocalConstants const&   locals,
+              LocalConstants const&   locals,
               Grid<Material>&         materialGrid,
               Grid<DegreesOfFreedom>& degreesOfFreedomGrid,
               WaveFieldWriter&        waveFieldWriter,
               SourceTerm&             sourceterm)
 {
   Grid<DegreesOfFreedom> timeIntegratedGrid(locals.elts_size[0]+2, locals.elts_size[1]+2); // +2 for ghost layers
+  
+  double Tnxy0_1[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
+  double Tnxy01[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
+  double Tnxy_10[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
+  double Tnxy10[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
+ 
+  double TTnxy0_1[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
+  double TTnxy01[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
+  double TTnxy_10[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
+  double TTnxy10[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
+
+  computeTnxyTTnxy(Tnxy0_1, Tnxy01, Tnxy_10, Tnxy10, TTnxy0_1, TTnxy01, TTnxy_10, TTnxy10);
   
   double time;
   int step = 0;
@@ -81,20 +93,24 @@ int simulate( GlobalConstants const&  globals,
         computeVolumeIntegral(globals, material, timeIntegrated, degreesOfFreedom);
 
         computeAplus(material, materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1] - 1), Aplus);
-        rotateFluxSolver(0., -1., Aplus, rotatedAplus);
-        computeFlux(-globals.hx / (globals.hx * globals.hy), GlobalMatrices::Fxm0, rotatedAplus, timeIntegrated, degreesOfFreedom);
+        //rotateFluxSolver(0., -1., Aplus, rotatedAplus);
+        rotateFluxSolver(Tnxy0_1, TTnxy0_1, Aplus, rotatedAplus);
+        computeFlux(globals, globals.hxFxm0, rotatedAplus, timeIntegrated, degreesOfFreedom);
         
         computeAplus(material, materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1] + 1), Aplus);
-        rotateFluxSolver(0., 1., Aplus, rotatedAplus);
-        computeFlux(-globals.hx / (globals.hx * globals.hy), GlobalMatrices::Fxm1, rotatedAplus, timeIntegrated, degreesOfFreedom);
+        //rotateFluxSolver(0., 1., Aplus, rotatedAplus);
+        rotateFluxSolver(Tnxy01, TTnxy01, Aplus, rotatedAplus);
+        computeFlux(globals, globals.hxFxm1, rotatedAplus, timeIntegrated, degreesOfFreedom);
         
         computeAplus(material, materialGrid.get(x + locals.start_elts[0] - 1, y + locals.start_elts[1]), Aplus);
-        rotateFluxSolver(-1., 0., Aplus, rotatedAplus);
-        computeFlux(-globals.hy / (globals.hx * globals.hy), GlobalMatrices::Fym0, rotatedAplus, timeIntegrated, degreesOfFreedom);
+        //rotateFluxSolver(-1., 0., Aplus, rotatedAplus);
+        rotateFluxSolver(Tnxy_10, TTnxy_10, Aplus, rotatedAplus);
+        computeFlux(globals, globals.hyFym0, rotatedAplus, timeIntegrated, degreesOfFreedom);
         
         computeAplus(material, materialGrid.get(x + locals.start_elts[0] + 1, y + locals.start_elts[1]), Aplus);
-        rotateFluxSolver(1., 0., Aplus, rotatedAplus);
-        computeFlux(-globals.hy / (globals.hx * globals.hy), GlobalMatrices::Fym1, rotatedAplus, timeIntegrated, degreesOfFreedom);
+        //rotateFluxSolver(1., 0., Aplus, rotatedAplus);
+        rotateFluxSolver(Tnxy10, TTnxy10, Aplus, rotatedAplus);
+        computeFlux(globals, globals.hyFym1, rotatedAplus, timeIntegrated, degreesOfFreedom);
         
         if (x == 0) memcpy(&outbuf_y[0][y * NUMBER_OF_DOFS], timeIntegrated, sizeof(DegreesOfFreedom));
         if (x == locals.elts_size[0] - 1) memcpy(&outbuf_y[1][y * NUMBER_OF_DOFS], timeIntegrated, sizeof(DegreesOfFreedom));
@@ -166,20 +182,24 @@ int simulate( GlobalConstants const&  globals,
         DegreesOfFreedom& degreesOfFreedom = degreesOfFreedomGrid.get(x, y);
 
         computeAminus(material, materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]-1), Aplus);
-        rotateFluxSolver(0., -1., Aplus, rotatedAplus);
-        computeFlux(-globals.hx / (globals.hx * globals.hy), GlobalMatrices::Fxp0, rotatedAplus, timeIntegratedGrid.get(x+1, y), degreesOfFreedom);
+        //rotateFluxSolver(0., -1., Aplus, rotatedAplus);
+        rotateFluxSolver(Tnxy0_1, TTnxy0_1, Aplus, rotatedAplus);
+        computeFlux(globals, globals.hxFxp0, rotatedAplus, timeIntegratedGrid.get(x, y-1), degreesOfFreedom);
         
         computeAminus(material, materialGrid.get(x + locals.start_elts[0], y + locals.start_elts[1]+1), Aplus);
-        rotateFluxSolver(0., 1., Aplus, rotatedAplus);
-        computeFlux(-globals.hx / (globals.hx * globals.hy), GlobalMatrices::Fxp1, rotatedAplus, timeIntegratedGrid.get(x+1, y+2), degreesOfFreedom);
+        //rotateFluxSolver(0., 1., Aplus, rotatedAplus);
+        rotateFluxSolver(Tnxy01, TTnxy01, Aplus, rotatedAplus);
+        computeFlux(globals, globals.hxFxp1, rotatedAplus, timeIntegratedGrid.get(x, y+1), degreesOfFreedom);
         
         computeAminus(material, materialGrid.get(x + locals.start_elts[0]-1, y + locals.start_elts[1]), Aplus);
-        rotateFluxSolver(-1., 0., Aplus, rotatedAplus);
-        computeFlux(-globals.hy / (globals.hx * globals.hy), GlobalMatrices::Fyp0, rotatedAplus, timeIntegratedGrid.get(x, y+1), degreesOfFreedom);
+        //rotateFluxSolver(-1., 0., Aplus, rotatedAplus);
+        rotateFluxSolver(Tnxy_10, Tnxy_10, Aplus, rotatedAplus);
+        computeFlux(globals, globals.hyFyp0, rotatedAplus, timeIntegratedGrid.get(x-1, y), degreesOfFreedom);
         
         computeAminus(material, materialGrid.get(x + locals.start_elts[0]+1, y + locals.start_elts[1]), Aplus);
-        rotateFluxSolver(1., 0., Aplus, rotatedAplus);
-        computeFlux(-globals.hy / (globals.hx * globals.hy), GlobalMatrices::Fyp1, rotatedAplus, timeIntegratedGrid.get(x+2, y+1), degreesOfFreedom);
+        //rotateFluxSolver(1., 0., Aplus, rotatedAplus);
+        rotateFluxSolver(Tnxy10, TTnxy10, Aplus, rotatedAplus);
+        computeFlux(globals, globals.hyFyp1, rotatedAplus, timeIntegratedGrid.get(x+1, y), degreesOfFreedom);
       }
     }
     
