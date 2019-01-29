@@ -77,8 +77,8 @@ void rotateFluxSolver(  double*      T,
   
   memset(rotatedFluxSolver, 0, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES*sizeof(double));
   
-  microkernel_nq_3(T, fluxSolver, tmp);
-  microkernel_nq_3(tmp, TT, rotatedFluxSolver);
+  kernel_nq(T, fluxSolver, tmp);
+  kernel_nq(tmp, TT, rotatedFluxSolver);
 }
 
 void computeAplus( Material const&  local,
