@@ -28,6 +28,7 @@ void computeTnxyTTnxy(double* Tnxy0_1, double* Tnxy01, double* Tnxy_10, double* 
   Tnxy10[1*NUMBER_OF_QUANTITIES + 2] = 0.0;
   Tnxy10[2*NUMBER_OF_QUANTITIES + 1] = -0.0;
   Tnxy10[2*NUMBER_OF_QUANTITIES + 2] = 1.0;
+  
   TTnxy0_1[0*NUMBER_OF_QUANTITIES + 0] = 1.0;
   TTnxy0_1[1*NUMBER_OF_QUANTITIES + 1] = 0.0;
   TTnxy0_1[1*NUMBER_OF_QUANTITIES + 2] = 1.0;
@@ -51,7 +52,6 @@ void computeTnxyTTnxy(double* Tnxy0_1, double* Tnxy01, double* Tnxy_10, double* 
   TTnxy10[1*NUMBER_OF_QUANTITIES + 2] = -0.0;
   TTnxy10[2*NUMBER_OF_QUANTITIES + 1] = 0.0;
   TTnxy10[2*NUMBER_OF_QUANTITIES + 2] = 1.0;
-  
 }
 
 void computeA(Material const& material, double A[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES])
@@ -68,40 +68,17 @@ void computeB(Material const& material, double B[NUMBER_OF_QUANTITIES*NUMBER_OF_
   B[2 * NUMBER_OF_QUANTITIES + 0] = 1.0 / material.rho0;
 }
 
-void rotateFluxSolver(  /*double        nx,
-                        double        ny,*/
-			double * T, double * TT,
-                        double const  fluxSolver[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES],
-                        double        rotatedFluxSolver[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+void rotateFluxSolver(  double*      T,
+                        double*      TT,
+                        double const fluxSolver[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES],
+                        double       rotatedFluxSolver[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
 {
- // double T[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
-  //double TT[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
   double tmp[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {}; // zero initialisation
   
   memset(rotatedFluxSolver, 0, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES*sizeof(double));
-  /*
-  T[0*NUMBER_OF_QUANTITIES + 0] = 1.0;
-  T[1*NUMBER_OF_QUANTITIES + 1] = nx;
-  T[1*NUMBER_OF_QUANTITIES + 2] = ny;
-  T[2*NUMBER_OF_QUANTITIES + 1] = -ny;
-  T[2*NUMBER_OF_QUANTITIES + 2] = nx;
   
-  TT[0*NUMBER_OF_QUANTITIES + 0] = 1.0;
-  TT[1*NUMBER_OF_QUANTITIES + 1] = nx;
-  TT[1*NUMBER_OF_QUANTITIES + 2] = -ny;
-  TT[2*NUMBER_OF_QUANTITIES + 1] = ny;
-  TT[2*NUMBER_OF_QUANTITIES + 2] = nx;*/
-  
-/*  DGEMM(  NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES,
-          1.0, T, NUMBER_OF_QUANTITIES,
-          fluxSolver, NUMBER_OF_QUANTITIES,
-          0.0, tmp, NUMBER_OF_QUANTITIES );*/
- microkernel_nq_3(T, fluxSolver, tmp); 
- microkernel_nq_3(tmp, TT, rotatedFluxSolver); 
- /* DGEMM(  NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES,
-          1.0, tmp, NUMBER_OF_QUANTITIES,
-          TT, NUMBER_OF_QUANTITIES,
-          0.0, rotatedFluxSolver, NUMBER_OF_QUANTITIES );*/
+  microkernel_nq_3(T, fluxSolver, tmp);
+  microkernel_nq_3(tmp, TT, rotatedFluxSolver);
 }
 
 void computeAplus( Material const&  local,

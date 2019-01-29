@@ -62,7 +62,6 @@ struct Material {
   double K0;
   double rho0;
   double wavespeed;
-//  inline double wavespeed() const { return sqrt(K0/rho0); }
 };
 
 struct SourceTerm {
