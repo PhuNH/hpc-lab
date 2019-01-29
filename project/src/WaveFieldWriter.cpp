@@ -142,14 +142,9 @@ void WaveFieldWriter::writeTimestep(double time, Grid<DegreesOfFreedom>& degrees
     for (int y = 0; y < locals.elts_size[1] * m_pointsPerDim; y++) {
       int viewStartIndex = gridStartIndex + y*m_pointsPerDim*globals.X;
       
-      MPI_File_set_view(pressureFile, viewStartIndex * sizeof(float), MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
-      MPI_File_write_all(pressureFile, m_pressure + y*m_pointsPerDim*locals.elts_size[0], m_pointsPerDim*locals.elts_size[0], MPI_FLOAT, &status);
-      
-      MPI_File_set_view(uFile, viewStartIndex * sizeof(float), MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
-      MPI_File_write_all(uFile, m_uvel + y*m_pointsPerDim*locals.elts_size[0], m_pointsPerDim*locals.elts_size[0], MPI_FLOAT, &status);
-      
-      MPI_File_set_view(vFile, viewStartIndex * sizeof(float), MPI_FLOAT, MPI_FLOAT, "native", MPI_INFO_NULL);
-      MPI_File_write_all(vFile, m_vvel + y*m_pointsPerDim*locals.elts_size[0], m_pointsPerDim*locals.elts_size[0], MPI_FLOAT, &status);
+      MPI_File_write_at(pressureFile, viewStartIndex * sizeof(float), m_pressure + y*m_pointsPerDim*locals.elts_size[0], m_pointsPerDim*locals.elts_size[0], MPI_FLOAT, &status);
+      MPI_File_write_at(uFile, viewStartIndex * sizeof(float), m_uvel + y*m_pointsPerDim*locals.elts_size[0], m_pointsPerDim*locals.elts_size[0], MPI_FLOAT, &status);
+      MPI_File_write_at(vFile, viewStartIndex * sizeof(float), m_vvel + y*m_pointsPerDim*locals.elts_size[0], m_pointsPerDim*locals.elts_size[0], MPI_FLOAT, &status);
     }
     
     MPI_File_close(&pressureFile);
