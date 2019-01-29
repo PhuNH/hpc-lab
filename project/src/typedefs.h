@@ -1,6 +1,7 @@
 #ifndef TYPEDEFS_H_
 #define TYPEDEFS_H_
 
+#include <mpi.h>
 #include <cmath>
 #include "constants.h"
 
@@ -36,6 +37,8 @@ struct LocalConstants {
   
   // rank processors [UP, DOWN, LEFT, RIGHT]
   int adj_list[4];
+  
+  MPI_Group nbGroups[4];
 };
 
 struct Material {

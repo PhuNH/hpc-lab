@@ -186,6 +186,11 @@ int main(int argc, char** argv)
   MPI_Cart_shift(cartcomm, 0, 1, &locals.adj_list[UP], &locals.adj_list[DOWN]);
   MPI_Cart_shift(cartcomm, 1, 1, &locals.adj_list[LEFT], &locals.adj_list[RIGHT]);
   
+  MPI_Group worldGroup;
+  MPI_Comm_group(MPI_COMM_WORLD, &worldGroup);
+  for (int i = 0; i < 4; i++)
+    MPI_Group_incl(worldGroup, 1, &locals.adj_list[i], &(locals.nbGroups[i]));
+  
   // Initializing locals variable
   get_size_subgrid(locals.coords_proc[0], globals.dims_proc[0], globals.Y, &locals.elts_size[1], &locals.start_elts[1]);
   get_size_subgrid(locals.coords_proc[1], globals.dims_proc[1], globals.X, &locals.elts_size[0], &locals.start_elts[0]);
@@ -239,6 +244,9 @@ int main(int argc, char** argv)
   
   if (locals.rank == 0) std::cout << "Total number of timesteps: " << steps << std::endl;
   
+  MPI_Group_free(&worldGroup);
+  for (int i = 0; i < 4; i++)
+    MPI_Group_free(&locals.nbGroups[i]);
   MPI_Finalize();
   
   return 0;
