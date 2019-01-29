@@ -56,6 +56,7 @@ void initScenario0(GlobalConstants& globals, LocalConstants& locals, Grid<Materi
       Material& material = materialGrid.get(x, y);
       material.rho0 = 1.;
       material.K0 = 4.;
+      material.wavespeed = sqrt(4./1.);
     }
   }
 
@@ -82,7 +83,7 @@ void initScenario1(GlobalConstants& globals, LocalConstants& locals, Grid<Materi
     }
   }
 
-  initialCondition(globals, materialGrid, degreesOfFreedomGrid);
+  initialCondition(globals, locals, materialGrid, degreesOfFreedomGrid);
 }
 
 double sourceFunctionAntiderivative(double time)
@@ -187,9 +188,9 @@ int main(int argc, char** argv)
     wfwBasename = basenameArg.getValue();
     wfwInterval = intervalArg.getValue();
     globals.endTime = timeArg.getValue();
-	
-	globals.dims_proc[0] = verticalArg.getValue();
-	globals.dims_proc[1] = horizontalArg.getValue();
+    
+    globals.dims_proc[0] = verticalArg.getValue();
+    globals.dims_proc[1] = horizontalArg.getValue();
     
     delete rdOutput;
     
@@ -254,7 +255,13 @@ int main(int argc, char** argv)
   
   WaveFieldWriter waveFieldWriter(wfwBasename, globals, locals, wfwInterval, static_cast<int>(ceil( sqrt(NUMBER_OF_BASIS_FUNCTIONS) )));
 
+  double t1, t2; 
+  t1 = MPI_Wtime(); 
+  computeAuxMatrices(globals);
+  globals.dgemm_beta_0 = microkernels[(CONVERGENCE_ORDER-2)*2];
+  globals.dgemm_beta_1 = microkernels[(CONVERGENCE_ORDER-2)*2+1];
   int steps = simulate(globals, locals, materialGrid, degreesOfFreedomGrid, waveFieldWriter, sourceterm);
+  t2 = MPI_Wtime(); 
   
   if (scenario == 0) {
     double local_L2error_squared[NUMBER_OF_QUANTITIES];
@@ -280,6 +287,8 @@ int main(int argc, char** argv)
   for (int i = 0; i < 4; i++)
     MPI_Group_free(&locals.nbGroups[i]);
   MPI_Finalize();
+  
+  printf("Simulation time: %f s\n", t2 - t1 );
   
   return 0;
 }
